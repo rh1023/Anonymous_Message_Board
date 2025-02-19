@@ -1,0 +1,3939 @@
+あなたは、優秀なPHPプログラマーです。
+HTML,CSS,PHP,MYSQLを教えることも一流です。
+そんなあなたに、今開発している案件を手伝って欲しいです。
+----------------------------------------------------------------------------------------------------
+現在、コミュニケーションを目的とした、質疑応答のアプリを構築しています。
+少し難しくて、一緒に作ってもらえますか？
+
+----------------------------------------------------------------------------------------------------
+機能要求を提示しますので、確認してください。
+最低限必要な必要な機能や、要求は下記です。
+・とことんシンプルな質問サイトとする。
+・利用者は、質問や回答を見ることが出来る。
+・回答は、質問に紐つく。
+・１質問に対する回答は、複数存在する。
+・利用者は、質問や回答を投稿することが出来る。
+・質問や回答は、誰でも見ることが出来る。
+・質問や回答を投稿する場合は、ユーザー認証が必要。
+・ログインは、ID とパスワードで行う。
+・ログインするには、ユーザー登録が必要。
+・ログイン後は、ログアウトすることが出来る。
+・質問や回答には、画像は不要。
+・テキストのみ投稿できる。
+・質問や回答は、投稿したら、編集できなくてよい
+・但し、削除はできる。
+・回答の削除は、指定した回答のみを削除する。
+・質問の削除は、回答と共に削除する。
+・削除したものは、データベースには、残しておく。
+・投稿した利用者のみ削除することが出来る。
+・質問の削除は、質問を投稿した利用者のみ可能で、他者の回答も併せて削除する
+・回答の削除は、投稿した自身の回答のみ
+・質問に、カテゴリのような区分は不要
+・ユーザーの退会やパスワード再発行は不要
+以上が、基本要求です。
+
+----------------------------------------------------------------------------------------------------
+
+まずは、テーブルの設計からやりましょう
+下記のデータベース、テーブルを作成したいです。
+
+データベース名：ideastockB
+ユーザーID：teamB
+パスワード：pass
+
+テーブル名：users
+論理名：利用者識別番号 , 物理名：id , データ型：INT , PRIMARY KEY, 備考：AUTO_INCREMENT
+論理名：利用者ID , 物理名：loginId , データ型：varchar(10) , 非NULL , UNIQUE , 備考：８文字以上
+論理名：パスワード , 物理名：password , データ型：varchar(10) , 非NULL , UNIQUE , 備考：８文字以上
+論理名：氏名 , 物理名：name , データ型：varchar(10) , 非NULL
+
+
+テーブル名：questions
+論理名：質問番号 , 物理名：id , データ型：INT , PRIMARY KEY, 備考：AUTO_INCREMENT
+論理名：利用者番号 , 物理名：userId , データ型：INT , 非NULL , PRIMARY KEY
+論理名：質問内容 , 物理名：question , データ型：varchar(256) , 非NULL
+論理名：投稿日 , 物理名：date , データ型：DateTime , 非NULL
+論理名：削除フラグ , 物理名：deleteFlg , データ型：tinyint(1) , 非NULL , 備考：デフォルトは０とする
+
+
+テーブル名：answers
+論理名：回答番号 , 物理名：id , データ型：BigINT , PRIMARY KEY, 備考：AUTO_INCREMENT
+論理名：質問番号 , 物理名：questionId , データ型：INT , 非NULL , FOREIGN KEY
+論理名：利用者番号 , 物理名：userId , データ型：INT , 非NULL , FOREIGN KEY
+論理名：回答内容 , 物理名：answer , データ型：varchar(256) , 非NULL
+論理名：投稿日 , 物理名：date , データ型：DateTime , 非NULL
+論理名：削除フラグ , 物理名：deleteFlg , データ型：tinyint(1) , 非NULL , 備考：デフォルトは０とする
+
+上記の定義から自分で作成したSQLのコードを確認してください。
+
+データベースの作成
+CREATE DATABASE ideastockB;
+
+データベースの選択
+USE ideastockB;
+
+usersテーブルの作成
+CREATE TABLE user (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    loginId VARCHAR(10) NOT NULL UNIQUE,
+    password VARCHAR(10) NOT NULL UNIQUE,
+    name VARCHAR(10) NOT NULL,
+    CONSTRAINT chk_loginId_length CHECK (LENGTH(loginId) >= 8),
+    CONSTRAINT chk_password_length CHECK (LENGTH(password) >= 8)
+);
+
+questionsテーブルの作成
+CREATE TABLE questions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    question VARCHAR(256) NOT NULL,
+    date DATETIME NOT NULL,
+    deleteFlg TINYINT(1) NOT NULL DEFAULT 0,
+    FOREIGN KEY (userId) REFERENCES user(id)
+);
+
+answerテーブルの作成
+CREATE TABLE answers (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    questionId INT NOT NULL,
+    userId INT NOT NULL,
+    answer VARCHAR(256) NOT NULL,
+    date DATETIME NOT NULL,
+    deleteFlg TINYINT(1) NOT NULL DEFAULT 0,
+    FOREIGN KEY (questionId) REFERENCES question(id),
+    FOREIGN KEY (userId) REFERENCES user(id)
+);
+
+
+----------------------------------------------------------------------------------------------------
+
+次に、画面作成、処理で使用するfunction関数を事前に作っておきたいと思います。
+下記内容を参照して、処理ができるように11種類作成してください
+
+function関数呼び出し専用ファイル
+ファイル名：functions.php
+このファイルに下記関数を書き込んでください。
+
+関数名：connect
+戻り値
+データ型：PDO
+備考：DB接続オブジェクト
+説明：PDOインスタンスを生成する
+
+関数名：isUser
+引数
+データ型：string , 引数名：userId , 備考：ログインID
+データ型：string , 引数名：userPw , 備考：パスワード
+戻り値
+データ型：bool , 備考：true:登録ユーザー
+説明：ログインID、パスワードを基にDBに登録されているユーザーか確認する。
+
+関数名：getUser
+引数
+データ型：string , 引数名：userId , 備考：ログインID
+データ型：string , 引数名：userPw , 備考：パスワード
+戻り値
+データ型：array | false , 備考：array:ログインした利用者情報が格納された連想配列
+説明：ログインID、パスワードを基にDBに登録されているユーザー情報を取得し、連想配列で返却する。DB未登録の場合は、falseを返却する
+
+関数名：addUser
+引数
+データ型：string , 引数名：viewName , 備考：表示名
+データ型：string , 引数名：userId , 備考：ログインID
+データ型：string , 引数名：userPw , 備考：パスワード
+戻り値
+データ型：bool , 備考：true:登録成功
+説明：引数を基に利用者情報をDBに登録する。ログインIDとパスワードは、組み合わせユニークとする。
+
+関数名：getQuestion
+戻り値
+データ型：array | false , 備考：array:有効な質問一覧情報が格納された連想配列
+説明：DBから質問表示に必要な情報を2次元連想配列で取得する。日付の新しい順、質問番号順を意識する
+
+関数名：addQuestion
+引数
+データ型：int , 引数名：userId , 備考：質問者のid
+データ型：string , 引数名：question , 備考：質問
+戻り値
+データ型：bool , 備考：true:登録成功
+説明：登録時点の日時を取得し、質問をDBに登録する
+
+関数名：deleteQuestion
+引数
+データ型：int , 引数名：questionId , 備考：削除対象の質問ID
+戻り値
+データ型：bool , 備考：true:削除成功
+説明：質問IDに紐つく回答もDBから論理削除する排他制御を意識する。
+
+関数名：getQuestionById
+引数
+データ型：int , 引数名：questionId , 備考：質問者のID
+戻り値
+データ型：array | false , 備考：array:質問情報が格納された連想配列
+説明：質問IDに紐つく質問情報を取得する。表示項目に留意する
+
+関数名：getAnswersByQuestionId
+引数
+データ型：int , 引数名：questionId , 備考：削除対象の質問ID
+戻り値
+データ型：array | false , 備考：array:質問に紐つく回答情報が格納された2次元連想配列
+説明：質問IDに紐つく回答情報を取得する。表示項目に留意する。日付の新しい順、回答番号順を意識する
+
+関数名：addsAnswer
+引数
+データ型：int , 引数名：userId , 備考：質問者のid
+データ型：int , 引数名：questionid , 備考：質問ID
+データ型：string , 引数名：answer , 備考：回答
+戻り値
+データ型：bool , 備考：true:登録成功
+説明：登録時点の日時を取得し、回答をDBに登録する
+
+関数名：deleteAnswer
+引数
+データ型：int , 引数名：answerId , 備考：削除対象の回答ID
+戻り値
+データ型：bool , 備考：true:削除成功
+説明：回答IDに紐つく回答をDBから論理削除する
+
+----------------------------------------------------------------------------------------------------
+
+動作確認は、すべて作成してから行いますので一旦このまま次にいきますね
+
+次に、画面定義から画面の作成を行いたいと思います。
+画面定義内容と自分で作成したソースコードファイルを順番にお見せしていきます。
+それぞれ一つずつ確認をお願いします。
+よろしいですか？
+
+----------------------------------------------------------------------------------------------------
+
+
+まずは、1つ目です。
+
+画面定義内容
+画面名：ログイン画面
+ファイル名：index.php
+説明：ログインを促すための画面(Get時は画面表示、Post時はログイン判定で画面遷移する)
+
+画面項目（Form）
+No1. form:A , 論理名：利用者ID , 物理名：userId , タイプ：text , I/O：I , 初期値："空白"
+No2. form:A , 論理名：パスワード , 物理名：userPw , タイプ：password , I/O：I , 初期値："空白"
+No4. form:A , 論理名：ページ , 物理名：page , タイプ：hidden , I/O：I/O , 初期値：$page
+No3. form:A , 論理名：ログイン , タイプ：submit , I/O:I , 初期値："ログイン"
+No4. form:B , 論理名：新規登録 , タイプ：link , I/O：I , 初期値："新規登録"
+No4. form:B , 論理名：page , 物理名：page , タイプ：hidden , I/O：I/O , 初期値：$page
+No5. form:C , 論理名：戻る , タイプ：link , I/O：I , 初期値："アイデア倉庫"
+No6. 論理名：エラーメッセージ , I/O：O , 初期値：$err
+
+アクション
+No1. form:A , 遷移先論理名：ログイン処理 , 遷移先URL：index.php , 説明：POST
+No2. form:B , 遷移先論理名：新規登録画面 , 遷移先URL：userAdd.php , 説明：GET
+No3. form:C , 遷移先論理名：質問一覧 , 遷移先URL：questions.php , 説明：GET
+
+ソースコード
+<?php
+// index.php
+// ログインを促すための画面。GET時は画面表示、POST時はログイン判定で画面遷移する。
+
+session_start();
+include 'includes/header.php';
+
+$err = '';
+$page = isset($_GET['page']) ? $_GET['page'] : '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $userId = isset($_POST['userId']) ? $_POST['userId'] : '';
+    $userPw = isset($_POST['userPw']) ? $_POST['userPw'] : '';
+
+    // ユーザーIDとパスワードが入力されているか確認
+    if (empty($userId) || empty($userPw)) {
+        $err = 'ユーザーIDとパスワードを入力してください。';
+    } else {
+        // ログイン処理
+        try {
+            // ユーザーIDでユーザーを検索
+            $stmt = $pdo->prepare("SELECT * FROM user WHERE loginId = ? AND password = ?");
+            $stmt->execute([$userId, $userPw]);
+            $user = $stmt->fetch();
+
+            if ($user) {
+                // ログイン成功
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_name'] = $user['name'];
+                header('Location: questions.php');
+                exit;
+            } else {
+                // ログイン失敗
+                $err = 'ユーザーIDまたはパスワードが正しくありません。';
+            }
+        } catch (PDOException $e) {
+            $err = 'データベースエラー: ' . $e->getMessage();
+        }
+    }
+}
+?>
+
+    <main>
+        <h1>ログイン</h1>
+        <?php if ($err) : ?>
+            <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+        <?php endif; ?>
+        <form action="index.php" method="post">
+            <div>
+                <label for="userId">利用者ID:</label>
+                <input type="text" id="userId" name="userId" required>
+            </div>
+            <div>
+                <label for="userPw">パスワード:</label>
+                <input type="password" id="userPw" name="userPw" required>
+            </div>
+            <input type="hidden" name="page" value="<?php echo htmlspecialchars($page); ?>">
+            <button type="submit">ログイン</button>
+        </form>
+        <p><a href="userAdd.php?page=<?php echo urlencode($page); ?>">新規登録</a></p>
+    </main>
+
+<?php
+include 'includes/footer.html';
+?>
+
+
+先ほど作成してもらった必要なfunction関数を使用し、修正をお願いします。
+また、それぞれどういう動きをするのか？どういう意味か？をコメントで記述してください。
+
+----------------------------------------------------------------------------------------------------
+
+次に2つ目です。
+こちらも、先ほど作成してもらった必要なfunction関数を使用し、修正をお願いします。
+また、それぞれどういう動きをするのか？どういう意味か？をコメントで記述してください。
+
+2つ目の画面
+画面名：回答入力画面
+ファイル名：answerInput.php
+説明：質問に対する回答を入力する画面
+
+画面項目（Form）
+No1. form:A , 論理名：戻る , タイプ：link , I/O：I , 初期値："アイデア倉庫"
+No2. form:B , 論理名：ログアウト , 物理名：logout , タイプ：submit , I/O：I , 初期値："ログアウト" , 説明：ログイン時のみ表示
+No3. 論理名：質問者 , I/O：O , 初期値：$question[name]
+No4. form:C , 論理名：質問ID , タイプ：hidden , I/O:I/O , 初期値：$question[id]
+No5. 論理名：質問 , I/O：O , 初期値：$question[question]
+No6. 論理名：質問投稿日 , I/O：O , 初期値：$question[date]
+No7. form:C , 論理名：回答 , 物理名：answer , タイプ：textarea , I/O：I , 初期値："空白"
+No8. form:C , 論理名：登録 , タイプ：submit , I/O：I , 初期値："登録"
+No9. form:D , 論理名：質問ID , タイプ：hidden , I/O：I/O , 初期値：$question[id]
+No9. form:D , 論理名：戻る , タイプ：submit , I/O：I , 初期値："戻る"
+No10. 論理名：エラーメッセージ , I/O：O , 初期値：$err
+
+アクション
+No1. form:A , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：GET
+No2. form:B , 遷移先論理名：ログイン画面 , 遷移先URL：index.php , 説明：POST
+No3. form:C , 遷移先論理名：回答入力画面 , 遷移先URL：answer.php , 説明：POST
+No4. form:C , 遷移先論理名：質問詳細画面 , 遷移先URL：detail.php , 説明：GET
+
+ソースコード
+<?php
+// answer.php
+// 質問に対する回答を入力する画面
+
+session_start();
+include 'header.php';
+
+// ログイン確認
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php?page=answer.php');
+    exit;
+}
+
+$err = '';
+$question = []; // 質問情報を格納する配列
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // 回答の登録処理
+    // 成功時はdetail.phpにリダイレクト
+    // 失敗時は$errにエラーメッセージを設定
+} else {
+    // GETリクエストの場合、質問情報を取得
+    $questionId = isset($_GET['questionId']) ? $_GET['questionId'] : null;
+    if ($questionId) {
+        // データベースから質問情報を取得
+        // $questionに格納
+    } else {
+        $err = '質問が指定されていません。';
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>回答入力</title>
+</head>
+<body>
+ <main>
+    <h1>回答入力</h1>
+    <p><a href="questions.php">アイデア倉庫</a></p>
+    <form action="index.php" method="post">
+        <input type="hidden" name="logout" value="1">
+        <button type="submit">ログアウト</button>
+    </form>
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php else: ?>
+        <h2>質問</h2>
+        <p>質問者: <?php echo htmlspecialchars($question['name']); ?></p>
+        <p><?php echo nl2br(htmlspecialchars($question['question'])); ?></p>
+        <p>投稿日: <?php echo htmlspecialchars($question['date']); ?></p>
+        <form action="answer.php" method="post">
+            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($question['id']); ?>">
+            <div>
+                <label for="answer">回答:</label>
+                <textarea id="answer" name="answer" required></textarea>
+            </div>
+            <button type="submit">登録</button>
+        </form>
+        <form action="detail.php" method="get">
+            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($question['id']); ?>">
+            <button type="submit">戻る</button>
+        </form>
+    <?php endif; ?>
+    </main>
+
+<?php
+include 'includes/footer.html';
+?>
+
+
+----------------------------------------------------------------------------------------------------
+
+次に3つ目です。
+こちらも、先ほど作成してもらった必要なfunction関数を使用し、修正をお願いします。
+また、それぞれどういう動きをするのか？どういう意味か？をコメントで記述してください。
+
+3つ目の画面
+画面名：質問一覧画面
+ファイル名：question.php
+説明：質問一覧を新しいデータから順に表示する
+
+画面項目（Form）
+No1. form:A , 論理名：戻る , タイプ：link , I/O：I , 初期値："アイデア倉庫"
+No2. form:B , 論理名：質問 , タイプ：submit , I/O：I , 初期値："質問"
+No2. form:C , 論理名：ログアウト , 物理名：logout , タイプ：submit , I/O：I , 初期値："ログアウト" , 説明：ログイン時のみ表示
+No4. 論理名：エラーメッセージ , I/O：O , 初期値：$err
+No5. form:D , 論理名：質問ID , 物理名：questionId , タイプ：hidden , I/O:I/O , 初期値：$questions[n][id] , 説明：(繰り返し項目)質問ID
+No6. 論理名：投稿者 , I/O:O , 初期値：$questions[n][name] , 説明：(繰り返し項目)
+No7. 論理名：質問内容 , I/O:O , 初期値：$questions[n][question] , 説明：(繰り返し項目)
+No8. 論理名：とうこび , I/O:O , 初期値：$questions[n][date] , 説明：(繰り返し項目)
+No9. form:D , 論理名：詳細 , タイプ：submit , I/O:I , 初期値："詳細" , 説明：(繰り返し項目)
+No10. form:E , 論理名：質問ID , 物理名：questionId , タイプ：hidden , I/O:I/O , 初期値：$questions[n][id] , 説明：(繰り返し項目)質問ID
+No11. form:E , 論理名：削除 , 物理名：delete , タイプ：submit , I/O:I , 初期値："削除" , 説明：(繰り返し項目)投稿者のみ表示する
+
+アクション
+No1. form:A , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：GET
+No2. form:B , 遷移先論理名：質問入力画面 , 遷移先URL：questionInput.php , 説明：GET
+No3. form:B , 遷移先論理名：ログイン画面 , 遷移先URL：index.php , 説明：POST
+No4. form:D , 遷移先論理名：質問詳細画面 , 遷移先URL：detail.php , 説明：GET
+No5. form:E , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：POST
+
+ソースコード
+<?php
+// questions.php
+// 質問一覧を新しいデータから順に表示する
+
+session_start();
+include 'includes/header.php';
+
+$err = '';
+$questions = []; // 質問一覧を格納する配列
+
+// 質問一覧を取得
+try {
+    $stmt = $pdo->query("SELECT q.id, q.question, q.date, u.name FROM question q JOIN user u ON q.userId = u.id WHERE q.deleteFlg = 0 ORDER BY q.date DESC");
+    $questions = $stmt->fetchAll();
+} catch (PDOException $e) {
+    $err = 'データベースエラー: ' . $e->getMessage();
+}
+
+// 削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    // 削除処理を実装
+    // 成功時は$questionsを更新
+    // 失敗時は$errにエラーメッセージを設定
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>質問一覧</title>
+</head>
+<body>
+<main>
+    <h1>質問一覧</h1>
+    <p><a href="questions.php">アイデア倉庫</a></p>
+    <?php if ($isLoggedIn): ?>
+        <form action="questionInput.php" method="get">
+            <button type="submit">質問</button>
+        </form>
+        <form action="index.php" method="post">
+            <input type="hidden" name="logout" value="1">
+            <button type="submit">ログアウト</button>
+        </form>
+    <?php else: ?>
+        <p><a href="index.php">ログイン</a></p>
+    <?php endif; ?>
+    
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    
+    <?php foreach ($questions as $q): ?>
+        <div>
+            <h2><?php echo htmlspecialchars($q['name']); ?>の質問</h2>
+            <p><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+            <p>投稿日: <?php echo htmlspecialchars($q['date']); ?></p>
+            <form action="detail.php" method="get">
+                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                <button type="submit">詳細</button>
+            </form>
+            <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                <form action="questions.php" method="post">
+                    <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                    <button type="submit" name="delete" value="1">削除</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
+    </main>
+<?php
+include 'includes/footer.html';
+?>
+
+
+----------------------------------------------------------------------------------------------------
+
+次に4つ目です。
+こちらも、先ほど作成してもらった必要なfunction関数を使用し、修正をお願いします。
+また、それぞれどういう動きをするのか？どういう意味か？をコメントで記述してください。
+
+4つ目の画面
+画面名：質問詳細画面
+ファイル名：detail.php
+説明：質問回答を表示する画面
+
+画面項目（Form）
+No1. form:A , 論理名：戻る , タイプ：link , I/O：I , 初期値："アイデア倉庫"
+No2. form:B , 論理名：ログアウト , 物理名：logout , タイプ：submit , I/O：I , 初期値："ログアウト" , 説明：ログイン時のみ表示
+No3. 論理名：質問者 , I/O：O , 初期値：$question[name]
+No4. form:C , 論理名：質問ID , 物理名：questionId , タイプ：hidden , I/O:I/O , 初期値：$question[id]
+No5. 論理名：質問 , I/O：O , 初期値：$question[question]
+No6. 論理名：質問投稿日 , I/O：O , 初期値：$question[date]
+No7. form:C , 論理名：ページ , 物理名：page , タイプ：hidden , I/O：I/O , 初期値："answer.php" , 説明：未ログイン時、ログイン成功後遷移するために必要
+No8. form:C , 論理名：回答 , 物理名：answer , タイプ：submit , I/O：I , 初期値："回答"
+No9. 論理名：回答者 , I/O：O , 初期値：$ans[n][name] , 説明：(繰り返し項目)
+No10. 論理名：回答内容 , I/O：O , 初期値：$ans[n][answer] , 説明：(繰り返し項目)
+No11. 論理名：回答投稿日 , I/O：O , 初期値：$ans[n][date] , 説明：(繰り返し項目)
+No12. form:D , 論理名：回答ID , 物理名：snswerId , タイプ：hidden , I/O：I/O , 初期値：$ans[n][id] , 説明：(繰り返し項目)
+No13. form:D , 論理名：回答削除 , 物理名：delete , タイプ：submit , I/O：I , "削除" , 説明：(繰り返し項目)投稿者のみ表示する
+No14. form:E , 論理名：戻る , タイプ：submit , I/O：I , 初期値："戻る"
+
+アクション
+No1. form:A , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：GET
+No2. form:B , 遷移先論理名：ログイン画面 , 遷移先URL：index.php , 説明：POST
+No3. form:C , 遷移先論理名：回答入力画面 , 遷移先URL：answer.php , 説明：GET
+No4. form:D , 遷移先論理名：質問詳細画面 , 遷移先URL：detail.php , 説明：POST
+No5. form:E , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：POST
+
+
+ソースコード
+<?php
+// detail.php
+// 質問詳細と回答を表示する画面
+
+session_start();
+include 'includes/header.php';
+
+$err = '';
+$question = []; // 質問情報を格納する配列
+$answers = []; // 回答一覧を格納する配列
+
+// 質問情報を取得
+$questionId = isset($_GET['questionId']) ? $_GET['questionId'] : null;
+if ($questionId) {
+    try {
+        $stmt = $pdo->prepare("SELECT q.id, q.question, q.date, u.name FROM question q JOIN user u ON q.userId = u.id WHERE q.id = ? AND q.deleteFlg = 0");
+        $stmt->execute([$questionId]);
+        $question = $stmt->fetch();
+
+        if (!$question) {
+            $err = '質問が見つかりません。';
+        }
+    } catch (PDOException $e) {
+        $err = 'データベースエラー: ' . $e->getMessage();
+    }
+} else {
+    $err = '質問が指定されていません。';
+}
+
+// 回答一覧を取得
+if (!$err) {
+    try {
+        $stmt = $pdo->prepare("SELECT a.id, a.answer, a.date, u.name FROM answer a JOIN user u ON a.userId = u.id WHERE a.questionId = ? AND a.deleteFlg = 0 ORDER BY a.date DESC");
+        $stmt->execute([$questionId]);
+        $answers = $stmt->fetchAll();
+    } catch (PDOException $e) {
+        $err = 'データベースエラー: ' . $e->getMessage();
+    }
+}
+
+// 回答の投稿処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['answer'])) {
+    $answer = $_POST['answer'];
+    $userId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+
+    if ($userId) {
+        try {
+            $stmt = $pdo->prepare("INSERT INTO answer (questionId, userId, answer, date, deleteFlg) VALUES (?, ?, ?, NOW(), 0)");
+            $stmt->execute([$questionId, $userId, $answer]);
+            header('Location: detail.php?questionId=' . $questionId);
+            exit;
+        } catch (PDOException $e) {
+            $err = 'データベースエラー: ' . $e->getMessage();
+        }
+    } else {
+        $err = 'ログインしていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>質問詳細</title>
+</head>
+<body>
+    <main>
+    <h1>質問詳細</h1>
+    <p><a href="questions.php">アイデア倉庫</a></p>
+    <?php if ($isLoggedIn): ?>
+        <form action="index.php" method="post">
+            <input type="hidden" name="logout" value="1">
+            <button type="submit">ログアウト</button>
+        </form>
+    <?php else: ?>
+        <p><a href="index.php">ログイン</a></p>
+    <?php endif; ?>
+    
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php else: ?>
+        <h2><?php echo htmlspecialchars($question['name']); ?>の質問</h2>
+        <p><?php echo nl2br(htmlspecialchars($question['question'])); ?></p>
+        <p>投稿日: <?php echo htmlspecialchars($question['date']); ?></p>
+        
+        <h3>回答</h3>
+        <?php foreach ($answers as $a): ?>
+            <div>
+                <p><?php echo htmlspecialchars($a['name']); ?>の回答</p>
+                <p><?php echo nl2br(htmlspecialchars($a['answer'])); ?></p>
+                <p>投稿日: <?php echo htmlspecialchars($a['date']); ?></p>
+            </div>
+        <?php endforeach; ?>
+        
+        <?php if ($isLoggedIn): ?>
+            <form action="detail.php?questionId=<?php echo htmlspecialchars($questionId); ?>" method="post">
+                <div>
+                    <label for="answer">回答:</label>
+                    <textarea id="answer" name="answer" required></textarea>
+                </div>
+                <button type="submit">投稿</button>
+            </form>
+        <?php endif; ?>
+    <?php endif; ?>
+    </main>
+    </body>
+<?php
+include 'includes/footer.html';
+?>
+----------------------------------------------------------------------------------------------------
+
+次に5つ目です。
+こちらも、先ほど作成してもらった必要なfunction関数を使用し、修正をお願いします。
+必要のない部分は削除していただいて問題ありません。
+また、それぞれどういう動きをするのか？どういう意味か？をコメントで記述してください。
+
+5つ目の画面
+画面名：質問入力画面
+ファイル名：questionInput.php
+説明：質問を投稿する画面
+
+画面項目（Form）
+No1. form:A , 論理名：戻る , タイプ：link , I/O：I , 初期値："アイデア倉庫"
+No4. form:B , 論理名：ログアウト , 物理名：logout , タイプ：submit , I/O：I , 初期値："ログアウト" , 説明：ログイン時のみ表示
+No5. form:C , 論理名：質問入力 , 物理名：question , タイプ：textarea , I/O：I , 初期値："空白"
+No6. form:C , 論理名：登録 , タイプ：submit , I/O：I , 初期値："登録"
+No7. 論理名：エラーメッセージ , I/O：O , 初期値：$err
+No8. form:D , 論理名：戻る , タイプ：submit , I/O：I , 初期値："戻る"
+
+アクション
+No1. form:A , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：GET
+No3. form:B , 遷移先論理名：ログイン画面 , 遷移先URL：index.php , 説明：POST
+No4. form:C , 遷移先論理名：質問入力画面 , 遷移先URL：questionInput.php , 説明：POST
+No5. form:D , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：GET
+No6. 遷移先論理名：ログイン画面 , 遷移先URL：index.php , 説明：GET(未ログイン時)
+
+ソースコード
+<?php
+// questionInput.php
+// 質問を投稿する画面
+
+session_start();
+include 'includes/header.php';
+
+// ログイン確認
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php?page=questionInput.php');
+    exit;
+}
+
+$err = '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $question = $_POST['question'];
+    $userId = $_SESSION['user_id'];
+
+    // 質問の登録処理
+    try {
+        $stmt = $pdo->prepare("INSERT INTO question (userId, question, date, deleteFlg) VALUES (?, ?, NOW(), 0)");
+        $stmt->execute([$userId, $question]);
+        header('Location: questions.php');
+        exit;
+    } catch (PDOException $e) {
+        $err = 'データベースエラー: ' . $e->getMessage();
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>質問入力</title>
+</head>
+<body>
+    <h1>質問入力</h1>
+    <p><a href="questions.php">アイデア倉庫</a></p>
+    <form action="index.php" method="post">
+        <input type="hidden" name="logout" value="1">
+        <button type="submit">ログアウト</button>
+    </form>
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    <form action="questionInput.php" method="post">
+        <div>
+            <label for="question">質問入力:</label>
+            <textarea id="question" name="question" required></textarea>
+        </div>
+        <button type="submit">登録</button>
+    </form>
+    <form action="questions.php" method="get">
+        <button type="submit">戻る</button>
+    </form>
+</main>
+</body>
+<?php
+include 'includes/footer.html';
+?>
+----------------------------------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------------------------
+
+次に6つ目です。
+こちらも、先ほど作成してもらった必要なfunction関数を使用し、修正をお願いします。
+必要のない部分は削除していただいて問題ありません。
+また、それぞれどういう動きをするのか？どういう意味か？をコメントで記述してください。
+
+6つ目の画面
+画面名：利用者登録画面
+ファイル名：userAdd.php
+説明：利用者を登録する為の画面
+
+画面項目（Form）
+No1. form:A , 論理名：戻る , タイプ：link , I/O：I , 初期値："アイデア倉庫"
+No2. form:B , 論理名：表示名 , 物理名：viewName , タイプ：text , I/O：I , 初期値："空白"
+No3. form:B , 論理名：ユーザーID , 物理名：userId , タイプ：text , I/O：I , 初期値："空白"
+No3. form:B , 論理名：パスワード , 物理名：pass , タイプ：text , I/O：I , 初期値："空白"
+No4. form:B , 論理名：ページ , 物理名：page , タイプ：hidden , I/O：I , 初期値：$page , 説明：戻る為の情報（セッション管理なら不要）
+No5. form:B , 論理名：登録 , タイプ：submit , I/O：I , 初期値："登録"
+No6. form:B , 論理名：ページ , 物理名：page , タイプ：hidden , I/O：I , 初期値：$page
+No7. form:C , 論理名：戻る , タイプ：submit , I/O：I , 初期値："戻る" , 説明：戻る為の情報（セッション管理なら不要）
+No7. 論理名：エラーメッセージ , I/O：O , 初期値：$err
+
+アクション
+No1. form:A , 遷移先論理名：質問一覧画面 , 遷移先URL：questions.php , 説明：GET
+No2. form:B , 遷移先論理名：利用者投稿画面 , 遷移先URL：userAdd.php , 説明：POST
+No2. form:C , 遷移先論理名：ログイン画面 , 遷移先URL：index.php , 説明：GET
+
+ソースコード
+<?php
+// userAdd.php
+// 利用者を登録するための画面
+
+session_start();
+include 'includes/header.php';
+
+$err = '';
+$page = isset($_GET['page']) ? $_GET['page'] : '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $viewName = $_POST['viewName'];
+    $userId = $_POST['userId'];
+    $pass = $_POST['pass'];
+
+    // 入力条件（文字数制限）
+    if (strlen($userId) < 8 || strlen($userId) > 50) {
+        $err = 'ユーザーIDは8文字以上50文字以下である必要があります。';
+    } elseif (strlen($pass) < 8) {
+        $err = 'パスワードは8文字以上である必要があります。';
+    } else {
+        // 利用者登録処理
+        try {
+            $stmt = $pdo->prepare("INSERT INTO user (loginId, password, name) VALUES (?, ?, ?)");
+            $stmt->execute([$userId, $pass, $viewName]);
+            header('Location: index.php');
+            exit;
+        } catch (PDOException $e) {
+            $err = 'データベースエラー: ' . $e->getMessage();
+        }
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>利用者登録</title>
+</head>
+<body>
+    <main>
+    <h1>利用者登録</h1>
+    <p><a href="questions.php">アイデア倉庫</a></p>
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    <form action="userAdd.php" method="post">
+        <div>
+            <label for="viewName">表示名:</label>
+            <input type="text" id="viewName" name="viewName" required>
+        </div>
+        <div>
+            <label for="userId">ユーザーID (8文字以上50文字以下):</label>
+            <input type="text" id="userId" name="userId" required minlength="8" maxlength="50">
+        </div>
+        <div>
+            <label for="pass">パスワード (8文字以上):</label>
+            <input type="password" id="pass" name="pass" required minlength="8">
+        </div>
+        <input type="hidden" name="page" value="<?php echo htmlspecialchars($page); ?>">
+        <button type="submit">登録</button>
+    </form>
+    <form action="index.php" method="get">
+        <button type="submit">戻る</button>
+    </form>
+</main>
+</body>
+<?php
+include 'includes/footer.html';
+?>
+
+----------------------------------------------------------------------------------------------------
+
+これで、土台ができたかと思います。
+作成してもらったソースコードを元にブラウザで検証します
+
+----------------------------------------------------------------------------------------------------
+MYSQLのデータベースの連携の部分の関数や、データベースから情報を読み取り、書き込みは、ちゃんとできていますか？
+利用者登録を行うとエラーが表示されます。
+Connection failed: SQLSTATE[HY000] [2002] No such file or directory
+----------------------------------------------------------------------------------------------------
+一通り、作成できました！
+確認作業に入ります。
+ありがとうございます。
+----------------------------------------------------------------------------------------------------
+今から作成（完了）したソースコードを順番に貼るので、一度見てください。
+その後は、一緒に確認してもらえますか？
+----------------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------------------
+まずは、1つ目です。
+
+<?php
+// index.php
+// ログインを促すための画面。GET時は画面表示、POST時はログイン判定で画面遷移する。
+
+session_start();
+require 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+$err = '';
+$page = isset($_GET['page']) ? $_GET['page'] : '';
+
+// POSTリクエストが送信された場合、ログイン処理を行う
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $userId = isset($_POST['userId']) ? $_POST['userId'] : '';
+    $userPw = isset($_POST['userPw']) ? $_POST['userPw'] : '';
+
+    // ユーザーIDとパスワードが入力されているか確認
+    if (empty($userId) || empty($userPw)) {
+        $err = 'ユーザーIDとパスワードを入力してください。';
+    } else {
+        // ログイン処理
+        try {
+            // isUser関数を使用して、ユーザーの存在を確認
+            if (isUser($userId, $userPw)) {
+                // getUser関数を使用して、ユーザー情報を取得
+                $user = getUser($userId, $userPw);
+                if ($user) {
+                    // ログイン成功、セッションにユーザー情報を保存
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['user_name'] = $user['name'];
+                    header('Location: question.php'); // 質問一覧ページにリダイレクト
+                    exit;
+                }
+            } else {
+                // ログイン失敗
+                $err = 'ユーザーIDまたはパスワードが正しくありません。';
+            }
+        } catch (Exception $e) {
+            $err = 'エラーが発生しました: ' . $e->getMessage();
+        }
+    }
+}
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/index_style.css">
+    <title>ログイン画面</title>
+</head>
+
+<main>
+    <h1>ログイン</h1>
+    <?php if ($err) : ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    <form action="index.php" method="post">
+        <div>
+            <label for="userId">利用者ID:</label>
+            <input type="text" id="userId" name="userId" required>
+        </div>
+        <div>
+            <label for="userPw">パスワード:</label>
+            <input type="password" id="userPw" name="userPw" required>
+        </div>
+        <input type="hidden" name="page" value="<?php echo htmlspecialchars($page); ?>">
+        <button type="submit">ログイン</button>
+    </form>
+    <p><a href="userAdd.php?page=<?php echo urlencode($page); ?>">新規登録</a></p>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+
+次のソースコードを貼ります。
+----------------------------------------------------------------------------------------------------
+次に、2つ目です。
+<?php
+// questionInput.php
+// 質問を投稿する画面
+
+session_start();
+require 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+// ログイン確認
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php?page=questionInput.php');
+    exit;
+}
+
+$err = '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $question = $_POST['question'];
+    $userId = $_SESSION['user_id'];
+
+    // 質問の登録処理
+    if (!empty($question)) {
+        // addQuestion関数を使用して質問を登録
+        if (addQuestion($userId, $question)) {
+            header('Location: question.php'); // 質問一覧画面にリダイレクト
+            exit;
+        } else {
+            $err = '質問の登録に失敗しました。';
+        }
+    } else {
+        $err = '質問を入力してください。';
+    }
+}
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/_style.css">
+    <title>質問入力画面</title>
+</head>
+
+<main>
+    <h1>質問入力</h1>
+    <form action="index.php" method="post">
+        <input type="hidden" name="logout" value="1">
+        <button type="submit">ログアウト</button>
+    </form>
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    <form action="questionInput.php" method="post">
+        <div>
+            <label for="question">質問入力:</label>
+            <textarea id="question" name="question" required></textarea>
+        </div>
+        <button type="submit">登録</button>
+    </form>
+    <form action="question.php" method="get">
+        <button type="submit">戻る</button>
+    </form>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+次のソースコードを貼ります。
+----------------------------------------------------------------------------------------------------
+次に、3つ目です。
+
+<?php
+// question.php
+// 質問一覧を新しいデータから順に表示する
+
+session_start();
+require 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+$err = '';
+$questions = []; // 質問一覧を格納する配列
+
+// 質問一覧を取得
+try {
+    // getQuestion関数を使用して質問一覧を取得
+    $questions = getQuestion();
+    if ($questions === false) {
+        $err = '質問の取得に失敗しました。';
+    }
+} catch (Exception $e) {
+    $err = 'エラーが発生しました: ' . $e->getMessage();
+}
+
+// 削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $questionId = isset($_POST['questionId']) ? $_POST['questionId'] : null;
+    if ($questionId) {
+        // deleteQuestion関数を使用して質問を削除
+        if (!deleteQuestion($questionId)) {
+            $err = '質問の削除に失敗しました。';
+        } else {
+            // 削除成功時に質問一覧を更新
+            $questions = getQuestion();
+        }
+    } else {
+        $err = '質問IDが指定されていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/_style.css">
+    <title>質問一覧<画面</title>
+</head>
+
+<body>
+<main>
+    <h1>質問一覧</h1>
+    <?php if ($isLoggedIn): ?>
+        <form action="questionInput.php" method="get">
+            <button type="submit">質問</button>
+        </form>
+        <form action="index.php" method="post">
+            <input type="hidden" name="logout" value="1">
+            <button type="submit">ログアウト</button>
+        </form>
+    <?php else: ?>
+        <p><a href="index.php">ログイン</a></p>
+    <?php endif; ?>
+    
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    
+    <?php foreach ($questions as $q): ?>
+        <div>
+            <h2><?php echo htmlspecialchars($q['name']); ?>の質問</h2>
+            <p><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+            <p>投稿日: <?php echo htmlspecialchars($q['date']); ?></p>
+            <form action="detail.php" method="get">
+                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                <button type="submit">詳細</button>
+            </form>
+            <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                <form action="question.php" method="post">
+                    <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                    <button type="submit" name="delete" value="1">削除</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
+    </main>
+<?php
+include 'includes/footer.html';
+?>
+
+次のソースコードを貼ります。
+----------------------------------------------------------------------------------------------------
+次に、4つ目です。
+
+<?php
+// detail.php
+// 質問詳細と回答を表示する画面
+
+session_start();
+require 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+$err = '';
+$question = []; // 質問情報を格納する配列
+$answers = []; // 回答一覧を格納する配列
+
+// 質問情報を取得
+$questionId = isset($_GET['questionId']) ? $_GET['questionId'] : null;
+if ($questionId) {
+    // getQuestionById関数を使用して質問情報を取得
+    $question = getQuestionById($questionId);
+    if (!$question) {
+        $err = '質問が見つかりません。';
+    }
+} else {
+    $err = '質問が指定されていません。';
+}
+
+// 回答一覧を取得
+if (!$err) {
+    try {
+        // getAnswersByQuestionId関数を使用して回答一覧を取得
+        $answers = getAnswersByQuestionId($questionId);
+        if ($answers === false) {
+            // 回答がない場合は空の配列をセット
+            $answers = [];
+        }
+    } catch (Exception $e) {
+        $err = 'エラーが発生しました: ' . $e->getMessage();
+    }
+}
+
+// 回答の削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $answerId = isset($_POST['answerId']) ? $_POST['answerId'] : null;
+    if ($answerId) {
+        // deleteAnswer関数を使用して回答を削除
+        if (!deleteAnswer($answerId)) {
+            $err = '回答の削除に失敗しました。';
+        } else {
+            // 削除成功時に回答一覧を更新
+            $answers = getAnswersByQuestionId($questionId);
+            if ($answers === false) {
+                $answers = [];
+            }
+        }
+    } else {
+        $err = '回答IDが指定されていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/index_style.css">
+    <title>質問詳細画面</title>
+</head>
+
+<main>
+    <h1>質問詳細</h1>
+    <?php if ($isLoggedIn): ?>
+        <form action="index.php" method="post">
+            <input type="hidden" name="logout" value="1">
+            <button type="submit">ログアウト</button>
+        </form>
+    <?php else: ?>
+        <p><a href="index.php">ログイン</a></p>
+    <?php endif; ?>
+    
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php else: ?>
+        <h2><?php echo htmlspecialchars($question['name']); ?>の質問</h2>
+        <p><?php echo nl2br(htmlspecialchars($question['question'])); ?></p>
+        <p>投稿日: <?php echo htmlspecialchars($question['date']); ?></p>
+        
+        <h3>回答</h3>
+        <?php if (empty($answers)): ?>
+            <p>まだ回答はありません。</p>
+        <?php else: ?>
+            <?php foreach ($answers as $a): ?>
+                <div>
+                    <p><?php echo htmlspecialchars($a['name']); ?>の回答</p>
+                    <p><?php echo nl2br(htmlspecialchars($a['answer'])); ?></p>
+                    <p>投稿日: <?php echo htmlspecialchars($a['date']); ?></p>
+                    <?php if ($isLoggedIn && $_SESSION['user_id'] == $a['userId']): ?>
+                        <form action="detail.php?questionId=<?php echo htmlspecialchars($questionId); ?>" method="post">
+                            <input type="hidden" name="answerId" value="<?php echo htmlspecialchars($a['id']); ?>">
+                            <button type="submit" name="delete" value="1">削除</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+        
+        <?php if ($isLoggedIn): ?>
+            <form action="answerInput.php" method="get">
+                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($questionId); ?>">
+                <button type="submit">回答</button>
+            </form>
+        <?php endif; ?>
+    <?php endif; ?>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+
+次のソースコードを貼ります。
+
+----------------------------------------------------------------------------------------------------
+次に、5つ目です。
+
+<?php
+// answerInput.php
+// 質問に対する回答を入力する画面
+
+session_start();
+require 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+// ログイン確認
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php?page=answerInput.php');
+    exit;
+}
+
+$err = '';
+$question = []; // 質問情報を格納する配列
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // 回答の登録処理
+    $questionId = isset($_POST['questionId']) ? $_POST['questionId'] : null;
+    $answer = isset($_POST['answer']) ? $_POST['answer'] : '';
+
+    if ($questionId && !empty($answer)) {
+        // 回答をデータベースに登録
+        if (addAnswer($_SESSION['user_id'], $questionId, $answer)) {
+            // 登録成功時は質問詳細画面にリダイレクト
+            header('Location: detail.php?questionId=' . urlencode($questionId));
+            exit;
+        } else {
+            $err = '回答の登録に失敗しました。';
+        }
+    } else {
+        $err = '回答を入力してください。';
+    }
+} else {
+    // GETリクエストの場合、質問情報を取得
+    $questionId = isset($_GET['questionId']) ? $_GET['questionId'] : null;
+    if ($questionId) {
+        // データベースから質問情報を取得
+        $question = getQuestionById($questionId);
+        if (!$question) {
+            $err = '指定された質問が見つかりません。';
+        }
+    } else {
+        $err = '質問が指定されていません。';
+    }
+}
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/index_style.css">
+    <title>回答入力画面</title>
+</head>
+
+<body>
+    <main>
+        <h1>回答入力</h1>
+        <form action="index.php" method="post">
+            <input type="hidden" name="logout" value="1">
+            <button type="submit">ログアウト</button>
+        </form>
+        <?php if ($err) : ?>
+            <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+        <?php else : ?>
+            <h2>質問</h2>
+            <p>質問者: <?php echo htmlspecialchars($question['name']); ?></p>
+            <p><?php echo nl2br(htmlspecialchars($question['question'])); ?></p>
+            <p>投稿日: <?php echo htmlspecialchars($question['date']); ?></p>
+            <form action="answerInput.php" method="post">
+                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($question['id']); ?>">
+                <div>
+                    <label for="answer">回答:</label>
+                    <textarea id="answer" name="answer" required></textarea>
+                </div>
+                <button type="submit">登録</button>
+            </form>
+            <form action="detail.php" method="get">
+                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($question['id']); ?>">
+                <button type="submit">戻る</button>
+            </form>
+        <?php endif; ?>
+    </main>
+
+    <?php
+    include 'includes/footer.html';
+    ?>
+
+次のソースコードを貼ります。
+----------------------------------------------------------------------------------------------------
+次に、6つ目です。
+
+<?php
+// userAdd.php
+// 利用者を登録するための画面
+
+session_start();
+require 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+$err = '';
+$page = isset($_GET['page']) ? $_GET['page'] : '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $viewName = $_POST['viewName'];
+    $userId = $_POST['userId'];
+    $pass = $_POST['pass'];
+
+    // 入力条件（文字数制限）
+    if (strlen($userId) < 8 || strlen($userId) > 50) {
+        $err = 'ユーザーIDは8文字以上50文字以下である必要があります。';
+    } elseif (strlen($pass) < 8) {
+        $err = 'パスワードは8文字以上である必要があります。';
+    } else {
+        // 利用者登録処理
+        if (addUser($viewName, $userId, $pass)) { // addUser関数を使用してユーザーを登録
+            header('Location: index.php'); // 登録成功時にログイン画面にリダイレクト
+            exit;
+        } else {
+            $err = 'ユーザー登録に失敗しました。';
+        }
+    }
+}
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/userAdd_style.css">
+    <title>利用者登録画面</title>
+</head>
+<main>
+    <h1>利用者登録</h1>
+    <?php if ($err): ?>
+        <p style="color: red;"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    <form action="userAdd.php" method="post">
+        <div>
+            <label for="viewName">表示名:</label>
+            <input type="text" id="viewName" name="viewName" required>
+        </div>
+        <div>
+            <label for="userId">ユーザーID (8文字以上50文字以下):</label>
+            <input type="text" id="userId" name="userId" required minlength="8" maxlength="50">
+        </div>
+        <div>
+            <label for="pass">パスワード (8文字以上):</label>
+            <input type="password" id="pass" name="pass" required minlength="8">
+        </div>
+        <button type="submit">登録</button>
+    </form>
+    <form action="index.php" method="get">
+        <button type="submit">戻る</button>
+    </form>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+
+次のソースコードを貼ります。
+
+----------------------------------------------------------------------------------------------------
+次に、7つ目です。
+function関数ファイルです。
+
+<?php
+
+// データベース接続情報
+define('DB_HOST', '127.0.0.1');
+define('DB_NAME', 'ideastockB');
+define('DB_USER', 'teamB');
+define('DB_PASS', 'pass');
+
+// PDOインスタンスを生成する関数
+function connect(): PDO {
+    try {
+        $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8';
+        $pdo = new PDO($dsn, DB_USER, DB_PASS);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $pdo;
+    } catch (PDOException $e) {
+        echo 'Connection failed: ' . $e->getMessage();
+        exit;
+    }
+}
+
+// ログインID、パスワードを基にDBに登録されているユーザーか確認する関数
+function isUser(string $userId, string $userPw): bool {
+    $pdo = connect();
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE loginId = :userId AND password = :userPw');
+    $stmt->execute(['userId' => $userId, 'userPw' => $userPw]);
+    return $stmt->fetchColumn() > 0;
+}
+
+// ログインID、パスワードを基にDBに登録されているユーザー情報を取得する関数
+function getUser(string $userId, string $userPw): array|false {
+    $pdo = connect();
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE loginId = :userId AND password = :userPw');
+    $stmt->execute(['userId' => $userId, 'userPw' => $userPw]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
+}
+
+// 利用者情報をDBに登録する関数
+function addUser(string $viewName, string $userId, string $userPw): bool {
+    $pdo = connect();
+    $stmt = $pdo->prepare('INSERT INTO users (name, loginId, password) VALUES (:name, :userId, :userPw)');
+    return $stmt->execute(['name' => $viewName, 'userId' => $userId, 'userPw' => $userPw]);
+}
+
+// DBから質問を取得する関数
+function getQuestion(): array|false {
+    $pdo = connect();
+    $stmt = $pdo->query('SELECT * FROM questions WHERE deleteFlg = 0 ORDER BY date DESC, id DESC');
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: false;
+}
+
+// 質問をDBに登録する関数
+function addQuestion(int $userId, string $question): bool {
+    $pdo = connect();
+    $stmt = $pdo->prepare('INSERT INTO questions (userId, question, date) VALUES (:userId, :question, NOW())');
+    return $stmt->execute(['userId' => $userId, 'question' => $question]);
+}
+
+// 質問を論理削除する関数
+function deleteQuestion(int $questionId): bool {
+    $pdo = connect();
+    $pdo->beginTransaction();
+    try {
+        $stmt1 = $pdo->prepare('UPDATE questions SET deleteFlg = 1 WHERE id = :questionId');
+        $stmt2 = $pdo->prepare('UPDATE answers SET deleteFlg = 1 WHERE questionId = :questionId');
+        $stmt1->execute(['questionId' => $questionId]);
+        $stmt2->execute(['questionId' => $questionId]);
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        return false;
+    }
+}
+
+// 質問IDに紐つく質問情報を取得する関数
+function getQuestionById(int $questionId): array|false {
+    $pdo = connect();
+    $stmt = $pdo->prepare('SELECT * FROM questions WHERE id = :questionId AND deleteFlg = 0');
+    $stmt->execute(['questionId' => $questionId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
+}
+
+// 質問IDに紐つく回答情報を取得する関数
+function getAnswersByQuestionId(int $questionId): array|false {
+    $pdo = connect();
+    $stmt = $pdo->prepare('SELECT a.id, a.answer, a.date, u.name, a.userId FROM answers a JOIN users u ON a.userId = u.id WHERE a.questionId = :questionId AND a.deleteFlg = 0 ORDER BY a.date DESC, a.id DESC');
+    $stmt->execute(['questionId' => $questionId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: false;
+}
+
+// 回答をDBに登録する関数
+function addAnswer(int $userId, int $questionId, string $answer): bool {
+    $pdo = connect();
+    $stmt = $pdo->prepare('INSERT INTO answers (userId, questionId, answer, date) VALUES (:userId, :questionId, :answer, NOW())');
+    return $stmt->execute(['userId' => $userId, 'questionId' => $questionId, 'answer' => $answer]);
+}
+
+// 回答を論理削除する関数
+function deleteAnswer(int $answerId): bool {
+    $pdo = connect();
+    $stmt = $pdo->prepare('UPDATE answers SET deleteFlg = 1 WHERE id = :answerId');
+    return $stmt->execute(['answerId' => $answerId]);
+}
+
+?>
+
+次のソースコードを貼ります。
+----------------------------------------------------------------------------------------------------
+最後のソースコードです。
+
+<?php
+//データ型方宣言
+declare(strict_types=1);
+?>
+
+<?php
+
+// 検索クエリの取得
+$search_query = isset($_GET['search']) ? $_GET['search'] : '';
+
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+<header>
+    <h1>Talk Link</h1>
+    <div class="header-bottom">
+        <a href="index.php">アイデア倉庫</a>
+        <div class="container">
+            <form action="index.php" method="get">
+                <input type="text" name="search" placeholder="質問を検索" value="<?php echo htmlspecialchars($search_query); ?>">
+                <button type="submit">検索</button>
+            </form>
+        </div>
+    </div>
+</header>
+----------------------------------------------------------------------------------------------------
+
+次に今確認してもらったソースコードで最初に用件定義した機能の確認をしたいです。
+
+下記内容に満たしているものと満たしていないものを考えましょう。
+・とことんシンプルな質問サイトとする。
+・利用者は、質問や回答を見ることが出来る。
+・回答は、質問に紐つく。
+・１質問に対する回答は、複数存在する。
+・利用者は、質問や回答を投稿することが出来る。
+・質問や回答は、誰でも見ることが出来る。
+・質問や回答を投稿する場合は、ユーザー認証が必要。
+・ログインは、ID とパスワードで行う。
+・ログインするには、ユーザー登録が必要。
+・ログイン後は、ログアウトすることが出来る。
+・質問や回答には、画像は不要。
+・テキストのみ投稿できる。
+・質問や回答は、投稿したら、編集できなくてよい
+・但し、削除はできる。
+・回答の削除は、指定した回答のみを削除する。
+・質問の削除は、回答と共に削除する。
+・削除したものは、データベースには、残しておく。
+・投稿した利用者のみ削除することが出来る。
+・質問の削除は、質問を投稿した利用者のみ可能で、他者の回答も併せて削除する
+・回答の削除は、投稿した自身の回答のみ
+・質問に、カテゴリのような区分は不要
+・ユーザーの退会やパスワード再発行は不要
+
+----------------------------------------------------------------------------------------------------
+削除権限は、問題ありません。
+他にいくつか問題がありました
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+まずは、1つ目
+質問一覧と質問詳細の画面で、「の質問」と表示されており、データベースから誰の質問なのか、名前を取得できていません
+----------------------------------------------------------------------------------------------------
+2つ目の画面
+名前の問題は、一度後にして先に、ログインしていないユーザーでも質問や回答が入力できるようになってしまっています
+----------------------------------------------------------------------------------------------------
+〜中略〜
+----------------------------------------------------------------------------------------------------
+PHPやhtml、CSSすべてを送った後に、項目を提示するので要件にあっているか一緒に確認したいです
+----------------------------------------------------------------------------------------------------
+では、これからソースコードを１つ１つ送っていきます。
+（略）
+（※別途ソースコード確認内容に記載する）
+----------------------------------------------------------------------------------------------------
+これまでに送ったソースコードで、様々な確認、修正したいことがあるのですが、少しずついいですか？
+
+はい、もちろんです。少しずつ確認や修正を進めていくのは良い方法です。具体的にどの部分から始めたいですか？例えば、以下のような観点から進めることができます：
+
+1. 特定のページや機能の改善
+2. セキュリティの強化
+3. パフォーマンスの最適化
+4. ユーザビリティの向上
+5. コードの可読性や保守性の改善
+6. レスポンシブデザインの強化
+
+どの部分から始めたいか教えてください。そして、具体的な質問や確認したい点があれば、それについて詳しく説明します。
+
+----------------------------------------------------------------------------------------------------
+
+おすすめしてくださった、観点は、大事ですね。
+まずは、自分が見やすいように可読性からあげたいと思います。
+
+html側でのclass定義（少し長い）、それに対応したcss部分、重複し省略できる箇所、htmlそれぞれ特有のclassなど少しわかりづらく感じます。
+そこの修正から行いと思います。
+
+
+
+はい、可読性の向上は非常に重要です。HTMLとCSSの整理から始めるのは良い選択です。以下のステップで進めていきましょう：
+
+1. HTML側のクラス定義の整理:
+   - 共通のスタイルを持つ要素には共通のクラスを使用する
+   - 特定のページや要素に固有のクラスは、より具体的な名前をつける
+   - BEM（Block Element Modifier）などの命名規則を採用することを検討する
+
+2. CSS側の整理:
+   - 共通のスタイルをまとめる
+   - 特定のページや要素に固有のスタイルは、それぞれのセクションにまとめる
+   - 重複するスタイルを削除し、継承を活用する
+
+3. CSSの構造化:
+   - リセットやベーススタイル
+   - 共通コンポーネント（ボタン、フォーム要素など）
+   - レイアウト
+   - 各ページ固有のスタイル
+   - ユーティリティクラス
+
+4. プリプロセッサの使用検討:
+   - Sass or Less の使用を検討し、変数やミックスインを活用する
+
+具体的な例を挙げると：
+
+```html
+<!-- Before -->
+<button class="question-input-back-btn">戻る</button>
+
+<!-- After -->
+<button class="btn btn-secondary btn-back">戻る</button>
+```
+
+```css
+/* Before */
+.question-input-back-btn,
+.detail-back-btn,
+.answer-input-back-btn {
+    /* 重複するスタイル */
+}
+
+/* After */
+.btn {
+    /* 共通のボタンスタイル */
+}
+.btn-secondary {
+    /* セカンダリーボタンのスタイル */
+}
+.btn-back {
+    /* 戻るボタン固有のスタイル（必要な場合） */
+}
+```
+
+これらの変更を適用することで、HTMLとCSSの構造がより明確になり、保守性が向上します。
+特定の部分から始めたい場合は、例えば「ボタンのスタイル」や「フォーム要素のスタイル」など、共通要素から着手するのが効果的です。どの部分から始めたいですか？
+
+
+----------------------------------------------------------------------------------------------------
+共通部分は、実際には変更の必要ありますか？
+レスポンシブデザインは、すべて完成してからでもいいですか？
+
+
+共通部分の現状評価と対応について、以下にまとめます：
+
+1. 共通部分の変更の必要性:
+   現状の共通部分のコードは基本的に問題なく機能していると思われます。急いで変更する必要はありません。ただし、以下の点で改善の余地があります：
+
+   - CSS変数の導入: 将来的な保守性向上のため
+   - ボタンスタイルの共通化: コードの重複を減らすため
+   - フォーム要素のスタイル改善: 一貫性を高めるため
+
+   これらの変更は、コードの品質を向上させますが、現在のシステムの機能には直接影響しません。
+
+2. レスポンシブデザインについて:
+   レスポンシブデザインの実装は、確かにすべての機能が完成してから行うこともできます。この方法には以下のメリットがあります：
+
+   - 基本機能の開発に集中できる
+   - 全体のデザインが固まってから対応できる
+   - 後から一括して効率的に実装できる
+
+ただし、以下の点に注意が必要です：
+
+- 後からレスポンシブ対応を行う場合、既存のコードの大幅な変更が必要になる可能性がある
+- 開発の早い段階でモバイル対応を考慮しておくと、後々の作業が軽減される
+
+結論:
+1. 共通部分は現状のまま使用し、機能開発を進めても問題ありません。
+2. レスポンシブデザインは、すべての機能が完成してから実装しても構いません。
+
+ただし、開発を進める中で時間に余裕がある場合は、少しずつ改善を加えていくことをお勧めします。特に、新しい機能を追加する際に、その部分だけでもレスポンシブ対応を意識して実装すると、最終的な作業量を減らすことができます。
+
+現時点では、機能の開発に集中し、共通部分やレスポンシブデザインの詳細な調整は後回しにしても問題ありません。
+----------------------------------------------------------------------------------------------------
+
+CSS変数は、今の自分には少しわからないので、無しにします。
+ボタンスタイルとフォーム要素のinput、textareaは、共通化したいと思います。
+
+変更が必要なHTMLの箇所とCSSの箇所を教えてください
+
+レスポンシブデザインを抜いて自分が提示したCSSを元に修正したCSSをすべて出力することはできますか？
+
+
+
+----------------------------------------------------------------------------------------------------
+ヘッダーの部分で少し、レイアウト修正できていないところがあるのですがよろしいですか？
+検索ボックスが崩れてしまっていて、うまいこと調整してもらえますか？
+クラス定義を更新する必要や追加の必要があれば、ご自由に変更してください。
+
+HTMLがこちら
+<header>
+    <a href="index.php">
+        <h1>質問掲示板</h1>
+    </a>
+    <div class="header-bottom">
+        <a href="question.php">質問一覧へ</a>
+        <div class="container">
+            <form action="index.php" method="get">
+                <input type="text" class="form-input" name="search" placeholder="質問を検索" value="<?php echo htmlspecialchars($search_query); ?>">
+                <button type="submit" class="btn btn-primary">検索</button>
+            </form>
+        </div>
+    </div>
+</header>
+
+CSSがこちら
+header {
+    max-width: 100%; /* 最大幅を設定 */
+    height: auto; /* 高さを設定 */
+    background-color: rgb(139, 205, 205); /* 背景色 */
+    display: flex; /* フレックスボックスレイアウトを使用 */
+    flex-direction: column; /* 子要素を縦に配置 */
+    justify-content: flex-start; /* 上から順に配置 */
+    padding: 10px 20px; /* 上下、左右のパディング */
+    position: relative; /* 相対位置を設定 */
+}
+
+header h1 {
+    margin: 0; /* マージンをリセット */
+    text-align: center; /* テキストを中央揃え */
+    width: 100%; /* 幅を設定 */
+}
+
+/* ヘッダーの下部（リンクと検索フォーム）のスタイル */
+.header-bottom {
+    display: flex; /* フレックスボックスレイアウトを使用 */
+    justify-content: space-between; /* 左右に均等に配置 */
+    align-items: center; /* 垂直方向の中央揃え */
+    width: 100%; /* 幅を100%に設定 */
+    margin-top: 10px; /* 上部にマージン */
+}
+
+header a {
+    padding: 5px 10px;
+    font-size: 25px; /* フォントサイズを設定 */
+    color: #000000; /* テキストの色を設定 */
+    text-decoration: none; /* 下線を消す */
+}
+
+/* 検索フォームのコンテナのスタイル */
+.container {
+    position: absolute; /* 絶対位置を設定 */
+    right: 20px; /* 右から20pxの位置に配置 */
+    bottom: 10px; /* 下から10pxの位置に配置 */
+}
+
+/* 検索フォームのスタイル */
+.container form {
+    display: flex; /* フレックスボックスレイアウトを使用 */
+}
+
+/* 検索入力欄のスタイル */
+.container input[type="text"] {
+    padding: 5px 10px; /* 上下、左右のパディング */
+    border: 1px solid #ccc;/* 薄いグレーのボーダー */
+    border-radius: 4px 0 0 4px; /* 左上と左下の角を丸くする */
+}
+
+/* 検索ボタンのスタイル */
+.container button {
+    padding: 5px 10px; /* 上下、左右のパディング */
+    background-color: #007bff; /* ボタンの背景色を青に設定 */
+    color: white; /* テキストの色を白に設定 */
+    border: none; /* ボーダーをなしに設定 */
+    border-radius: 0 4px 4px 0; /* 右上と右下の角を丸くする */
+    cursor: pointer; /* マウスカーソルをポインタに変更 */
+}
+
+----------------------------------------------------------------------------------------------------
+今回お願いしたい修正部分は、検索入力のところです。
+
+
+申し訳ありません。混乱を招いてしまいました。検索入力部分に焦点を当てて修正しましょう。以下に、ヘッダーの検索入力部分のHTMLとCSSを示します。
+
+HTML:
+```html
+<header>
+    <a href="index.php">
+        <h1>質問掲示板</h1>
+    </a>
+    <div class="header-bottom">
+        <a href="question.php">質問一覧へ</a>
+        <div class="search-container">
+            <form action="index.php" method="get">
+                <input type="text" class="search-input" name="search" placeholder="質問を検索" value="<?php echo htmlspecialchars($search_query); ?>">
+                <button type="submit" class="search-btn">検索</button>
+            </form>
+        </div>
+    </div>
+</header>
+```
+
+CSS:
+```css
+header {
+    max-width: 100%;
+    background-color: rgb(139, 205, 205);
+    padding: 10px 20px;
+}
+
+header h1 {
+    margin: 0;
+    text-align: center;
+}
+
+.header-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.search-container {
+    display: flex;
+    align-items: center;
+}
+
+.search-container form {
+    display: flex;
+}
+
+.search-input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px 0 0 4px;
+    font-size: 14px;
+    width: 200px;
+}
+
+.search-btn {
+    padding: 8px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.search-btn:hover {
+    background-color: #0056b3;
+}
+
+@media (max-width: 600px) {
+    .header-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .search-container {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .search-input {
+        width: calc(100% - 70px);
+    }
+}
+```
+
+この修正により：
+
+1. 検索入力フィールドとボタンが横並びになります。
+2. 検索入力フィールドの幅が固定され、ボタンとのバランスが取れます。
+3. レスポンシブデザインにより、小さな画面サイズでも適切に表示されます。
+
+これらの変更を適用することで、検索入力部分のレイアウトが改善されるはずです。
+必要に応じて、幅や色などをさらに調整してください。
+
+----------------------------------------------------------------------------------------------------
+可読性は、今はOKとして
+次の確認、修正内容で、１の特定のページや機能の改善を行いたいと思います。
+
+----------------------------------------------------------------------------------------------------
+headerの検索項目で、検索内容を入力するとそのワードに引っかかる内容を表示させる機能を追加したいと考えています。
+
+----------------------------------------------------------------------------------------------------
+こちらが、現在のheader.phpの内容です。
+<?php
+//データ型方宣言
+declare(strict_types=1);
+?>
+
+<?php
+// 検索クエリの取得
+$search_query = isset($_GET['search']) ? $_GET['search'] : '';
+?>
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<header>
+    <a href="index.php">
+        <h1>質問掲示板</h1>
+    </a>
+    <div class="header-bottom">
+        <a href="question.php">質問一覧へ</a>
+
+        <div class="container">
+            <form action="question.php" method="get">
+                <input type="text" class="container-input" name="search" placeholder="質問を検索" value="<?php echo htmlspecialchars($search_query); ?>">
+                <button type="submit" class="btn-container">検索</button>
+            </form>
+        </div>
+        
+    </div>
+</header>
+
+検索項目はありますが、内容を入力しても検索はされないものです。使用できるようにしたいです。
+
+----------------------------------------------------------------------------------------------------
+javascriptを使うのは、禁止されています。
+使わずに対応することは、できますか？
+----------------------------------------------------------------------------------------------------
+今の部分を追加したものが下記です。
+こちらで問題ありませんか？
+
+<?php
+// question.php
+// 質問一覧を新しいデータから順に表示し、検索機能を提供する
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+require_once 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+// 検索結果を出す関数
+function searchQuestions($query) {
+    global $pdo;
+    $sql = "SELECT * FROM questions WHERE question LIKE :query OR name LIKE :query ORDER BY date DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['query' => '%' . $query . '%']);
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // デバッグ出力
+    echo "Search query: " . $query . "<br>";
+    echo "SQL: " . $sql . "<br>";
+    echo "Result count: " . count($result) . "<br>";
+    var_dump($result);
+    
+    return $result;
+}
+
+
+$err = '';
+$questions = []; // 質問一覧を格納する配列
+
+// 検索クエリの取得
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// 質問一覧を取得
+// try {
+//     if (!empty($search_query)) {
+//         // 検索クエリがある場合は検索結果を取得
+//         $questions = searchQuestions($search_query);
+//     } else {
+//         // 検索クエリがない場合は全ての質問を取得
+//         $questions = getQuestion();
+//     }
+//     if ($questions === false) {
+//         $err = '質問の取得に失敗しました。';
+//     }
+// } catch (Exception $e) {
+//     $err = 'エラーが発生しました: ' . $e->getMessage();
+// }
+
+// 質問一覧を取得
+try {
+    echo "Search query: " . $search_query . "<br>"; // デバッグ出力
+    if (!empty($search_query)) {
+        echo "Searching questions<br>"; // デバッグ出力
+        $questions = searchQuestions($search_query);
+    } else {
+        echo "Getting all questions<br>"; // デバッグ出力
+        $questions = getQuestion();
+    }
+    if ($questions === false) {
+        $err = '質問の取得に失敗しました。';
+    }
+    echo "Question count: " . count($questions) . "<br>"; // デバッグ出力
+} catch (Exception $e) {
+    $err = 'エラーが発生しました: ' . $e->getMessage();
+}
+
+// 削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $questionId = isset($_POST['questionId']) ? $_POST['questionId'] : null;
+    if ($questionId) {
+        // deleteQuestion関数を使用して質問を削除
+        if (!deleteQuestion($questionId)) {
+            $err = '質問の削除に失敗しました。';
+        } else {
+            // 削除成功時に質問一覧を更新
+            $questions = getQuestion();
+        }
+    } else {
+        $err = '質問IDが指定されていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <title>質問一覧画面</title>
+</head>
+
+<main class="question-page">
+    <h1 class="question-title">質問一覧</h1>
+    <div class="question-actions">
+        <?php if ($isLoggedIn): ?>
+            <!-- ログイン済みの場合、質問投稿とログアウトボタンを表示 -->
+            <form action="questionInput.php" method="get">
+                <button type="submit" class="btn">質問をする</button>
+            </form>
+            <form action="index.php" method="post" class="question-logout-form">
+                <input type="hidden" name="logout" value="1">
+                <button type="submit" class="btn btn-second">ログアウト</button>
+            </form>
+        <?php else: ?>
+            <!-- 未ログインの場合、ログインボタンを表示 -->
+            <form action="index.php" method="get" class="question-login-form">
+                <button type="submit" class="btn-second">ログイン</button>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($err): ?>
+        <!-- エラーメッセージがある場合に表示 -->
+        <p class="error-message"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+
+
+
+    <?php if (!empty($search_query)): ?>
+        <!-- 検索クエリがある場合、検索結果であることを表示 -->
+        <p class="search-result">検索結果: "<?php echo htmlspecialchars($search_query); ?>"</p>
+    var_dump($search_query);
+    var_dump(count($questions));
+    <?php endif; ?>
+
+    <div class="question-list">
+        <?php if (empty($questions)): ?>
+            <!-- 質問がない場合のメッセージを表示 -->
+            <p class="no-questions">質問がありません。</p>
+        <?php else: ?>
+            <!-- 質問一覧の表示 -->
+            <?php foreach ($questions as $q): ?>
+                <div class="question-item">
+                    <h2 class="question-item-title"><?php echo htmlspecialchars($q['name']); ?>の質問</h2>
+                    <p class="question-item-content"><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+                    <p class="question-item-date">投稿日：<?php echo htmlspecialchars($q['date']); ?></p>
+                    <div class="question-item-actions">
+                        <!-- 質問の詳細ページへのリンク -->
+                        <form action="detail.php" method="get" class="question-detail-form">
+                            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                            <button type="submit" class="btn btn-detail">詳細</button>
+                        </form>
+                        <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                            <!-- 質問の投稿者のみに削除ボタンを表示 -->
+                            <form action="question.php" method="post" class="question-delete-form">
+                                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                                <button type="submit" name="delete" value="1" class="btn btn-delete">削除</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+----------------------------------------------------------------------------------------------------
+検索項目には、「海」と入力して、検索をかけました。
+
+ブラウザでこのようなメッセージが表示されました。
+Search query: 海
+Searching questions
+
+Fatal error: Uncaught Error: Call to a member function prepare() on null in /Applications/XAMPP/xamppfiles/htdocs/develop/QAbbs/question.php:17 Stack trace: #0 /Applications/XAMPP/xamppfiles/htdocs/develop/QAbbs/question.php(58): searchQuestions('\xE6\xB5\xB7') #1 {main} thrown in /Applications/XAMPP/xamppfiles/htdocs/develop/QAbbs/question.php on line 17
+----------------------------------------------------------------------------------------------------
+さきほどよりは、表示されましたがエラーです。
+Search query: 海
+Searching questions
+
+Warning: Undefined variable $pdo in /Applications/XAMPP/xamppfiles/htdocs/develop/QAbbs/question.php on line 62
+
+エラーが発生しました: データベース接続が確立されていません。
+検索結果: "海"
+var_dump($search_query); var_dump(count($questions));
+質問がありません。
+
+確実に「海」が含まれている質問はあります。
+
+今回のソースコードを再度貼ります。
+<?php
+// question.php
+// 質問一覧を新しいデータから順に表示し、検索機能を提供する
+
+var_dump($pdo);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+require_once 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+// 検索結果を出す関数
+function searchQuestions($pdo , $query , $debug = false) {
+    global $pdo;
+    if (!$pdo) {
+        throw new Exception('データベース接続が確立されていません。');
+    }
+    $sql = "SELECT * FROM questions WHERE question LIKE :query OR name LIKE :query ORDER BY date DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['query' => '%' . $query . '%']);
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // デバッグ出力
+    echo "Search query: " . $query . "<br>";
+    echo "SQL: " . $sql . "<br>";
+    echo "Result count: " . count($result) . "<br>";
+    var_dump($result);
+    
+    return $result;
+}
+
+
+$err = '';
+$questions = []; // 質問一覧を格納する配列
+
+// 検索クエリの取得
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// 質問一覧を取得
+// try {
+//     if (!empty($search_query)) {
+//         // 検索クエリがある場合は検索結果を取得
+//         $questions = searchQuestions($search_query);
+//     } else {
+//         // 検索クエリがない場合は全ての質問を取得
+//         $questions = getQuestion();
+//     }
+//     if ($questions === false) {
+//         $err = '質問の取得に失敗しました。';
+//     }
+// } catch (Exception $e) {
+//     $err = 'エラーが発生しました: ' . $e->getMessage();
+// }
+
+// 質問一覧を取得
+try {
+    echo "Search query: " . $search_query . "<br>"; // デバッグ出力
+    if (!empty($search_query)) {
+        echo "Searching questions<br>"; // デバッグ出力
+        $questions = searchQuestions($pdo, $search_query, true);
+    } else {
+        echo "Getting all questions<br>"; // デバッグ出力
+        $questions = getQuestion();
+    }
+    if ($questions === false) {
+        $err = '質問の取得に失敗しました。';
+    }
+    echo "Question count: " . count($questions) . "<br>"; // デバッグ出力
+} catch (Exception $e) {
+    $err = 'エラーが発生しました: ' . $e->getMessage();
+}
+
+// 削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $questionId = isset($_POST['questionId']) ? $_POST['questionId'] : null;
+    if ($questionId) {
+        // deleteQuestion関数を使用して質問を削除
+        if (!deleteQuestion($questionId)) {
+            $err = '質問の削除に失敗しました。';
+        } else {
+            // 削除成功時に質問一覧を更新
+            $questions = getQuestion();
+        }
+    } else {
+        $err = '質問IDが指定されていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <title>質問一覧画面</title>
+</head>
+
+<main class="question-page">
+    <h1 class="question-title">質問一覧</h1>
+    <div class="question-actions">
+        <?php if ($isLoggedIn): ?>
+            <!-- ログイン済みの場合、質問投稿とログアウトボタンを表示 -->
+            <form action="questionInput.php" method="get">
+                <button type="submit" class="btn">質問をする</button>
+            </form>
+            <form action="index.php" method="post" class="question-logout-form">
+                <input type="hidden" name="logout" value="1">
+                <button type="submit" class="btn btn-second">ログアウト</button>
+            </form>
+        <?php else: ?>
+            <!-- 未ログインの場合、ログインボタンを表示 -->
+            <form action="index.php" method="get" class="question-login-form">
+                <button type="submit" class="btn-second">ログイン</button>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($err): ?>
+        <!-- エラーメッセージがある場合に表示 -->
+        <p class="error-message"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+
+
+
+    <?php if (!empty($search_query)): ?>
+        <!-- 検索クエリがある場合、検索結果であることを表示 -->
+        <p class="search-result">検索結果: "<?php echo htmlspecialchars($search_query); ?>"</p>
+    var_dump($search_query);
+    var_dump(count($questions));
+    <?php endif; ?>
+
+    <div class="question-list">
+        <?php if (empty($questions)): ?>
+            <!-- 質問がない場合のメッセージを表示 -->
+            <p class="no-questions">質問がありません。</p>
+        <?php else: ?>
+            <!-- 質問一覧の表示 -->
+            <?php foreach ($questions as $q): ?>
+                <div class="question-item">
+                    <h2 class="question-item-title"><?php echo htmlspecialchars($q['name']); ?>の質問</h2>
+                    <p class="question-item-content"><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+                    <p class="question-item-date">投稿日：<?php echo htmlspecialchars($q['date']); ?></p>
+                    <div class="question-item-actions">
+                        <!-- 質問の詳細ページへのリンク -->
+                        <form action="detail.php" method="get" class="question-detail-form">
+                            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                            <button type="submit" class="btn btn-detail">詳細</button>
+                        </form>
+                        <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                            <!-- 質問の投稿者のみに削除ボタンを表示 -->
+                            <form action="question.php" method="post" class="question-delete-form">
+                                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                                <button type="submit" name="delete" value="1" class="btn btn-delete">削除</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+----------------------------------------------------------------------------------------------------
+今度は、こうなりました。
+
+Searching questions
+
+エラーが発生しました: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'name' in 'where clause'
+
+検索結果: "海"
+
+var_dump($search_query); var_dump(count($questions));
+質問がありません。
+
+今回もソースコードを貼ります。
+<?php
+// question.php
+// 質問一覧を新しいデータから順に表示し、検索機能を提供する
+global $pdo;
+var_dump($pdo);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+require_once 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+// 検索結果を出す関数
+function searchQuestions($pdo, $query, $debug = false) {
+    if (!$pdo) {
+        throw new Exception('データベース接続が確立されていません。');
+    }
+    $sql = "SELECT * FROM questions WHERE question LIKE :query OR name LIKE :query ORDER BY date DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['query' => '%' . $query . '%']);
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // デバッグ出力
+    echo "Search query: " . $query . "<br>";
+    echo "SQL: " . $sql . "<br>";
+    echo "Result count: " . count($result) . "<br>";
+    var_dump($result);
+    
+    return $result;
+}
+
+
+$err = '';
+$questions = []; // 質問一覧を格納する配列
+
+// 検索クエリの取得
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// 質問一覧を取得
+// try {
+//     if (!empty($search_query)) {
+//         // 検索クエリがある場合は検索結果を取得
+//         $questions = searchQuestions($search_query);
+//     } else {
+//         // 検索クエリがない場合は全ての質問を取得
+//         $questions = getQuestion();
+//     }
+//     if ($questions === false) {
+//         $err = '質問の取得に失敗しました。';
+//     }
+// } catch (Exception $e) {
+//     $err = 'エラーが発生しました: ' . $e->getMessage();
+// }
+
+// 質問一覧を取得
+try {
+    if (!empty($search_query)) {
+        echo "Searching questions<br>"; // デバッグ出力
+        $questions = searchQuestions($pdo, $search_query, true);
+    } else {
+        echo "Getting all questions<br>"; // デバッグ出力
+        $questions = getQuestion();
+    }
+    if ($questions === false) {
+        $err = '質問の取得に失敗しました。';
+    }
+    echo "Question count: " . count($questions) . "<br>"; // デバッグ出力
+} catch (Exception $e) {
+    $err = 'エラーが発生しました: ' . $e->getMessage();
+}
+
+// 削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $questionId = isset($_POST['questionId']) ? $_POST['questionId'] : null;
+    if ($questionId) {
+        // deleteQuestion関数を使用して質問を削除
+        if (!deleteQuestion($questionId)) {
+            $err = '質問の削除に失敗しました。';
+        } else {
+            // 削除成功時に質問一覧を更新
+            $questions = getQuestion();
+        }
+    } else {
+        $err = '質問IDが指定されていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <title>質問一覧画面</title>
+</head>
+
+<main class="question-page">
+    <h1 class="question-title">質問一覧</h1>
+    <div class="question-actions">
+        <?php if ($isLoggedIn): ?>
+            <!-- ログイン済みの場合、質問投稿とログアウトボタンを表示 -->
+            <form action="questionInput.php" method="get">
+                <button type="submit" class="btn">質問をする</button>
+            </form>
+            <form action="index.php" method="post" class="question-logout-form">
+                <input type="hidden" name="logout" value="1">
+                <button type="submit" class="btn btn-second">ログアウト</button>
+            </form>
+        <?php else: ?>
+            <!-- 未ログインの場合、ログインボタンを表示 -->
+            <form action="index.php" method="get" class="question-login-form">
+                <button type="submit" class="btn-second">ログイン</button>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($err): ?>
+        <!-- エラーメッセージがある場合に表示 -->
+        <p class="error-message"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+
+
+
+    <?php if (!empty($search_query)): ?>
+        <!-- 検索クエリがある場合、検索結果であることを表示 -->
+        <p class="search-result">検索結果: "<?php echo htmlspecialchars($search_query); ?>"</p>
+    var_dump($search_query);
+    var_dump(count($questions));
+    <?php endif; ?>
+
+    <div class="question-list">
+        <?php if (empty($questions)): ?>
+            <!-- 質問がない場合のメッセージを表示 -->
+            <p class="no-questions">質問がありません。</p>
+        <?php else: ?>
+            <!-- 質問一覧の表示 -->
+            <?php foreach ($questions as $q): ?>
+                <div class="question-item">
+                    <h2 class="question-item-title"><?php echo htmlspecialchars($q['name']); ?>の質問</h2>
+                    <p class="question-item-content"><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+                    <p class="question-item-date">投稿日：<?php echo htmlspecialchars($q['date']); ?></p>
+                    <div class="question-item-actions">
+                        <!-- 質問の詳細ページへのリンク -->
+                        <form action="detail.php" method="get" class="question-detail-form">
+                            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                            <button type="submit" class="btn btn-detail">詳細</button>
+                        </form>
+                        <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                            <!-- 質問の投稿者のみに削除ボタンを表示 -->
+                            <form action="question.php" method="post" class="question-delete-form">
+                                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                                <button type="submit" name="delete" value="1" class="btn btn-delete">削除</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+
+<?php
+//functions.php
+// データベース接続情報
+const DB_HOST = '127.0.0.1';
+const DB_NAME = 'QAbbs';
+const DB_USER = 'root';
+const DB_PASS = '';
+const DB_CHARSET = 'utf8mb4';
+
+// functions.php の先頭あたりに追加
+global $pdo;
+$pdo = connect();
+
+//PDOインスタンスを生成する関数
+function connect(): PDO
+{
+    try {
+        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        $pdo = new PDO($dsn, DB_USER, DB_PASS);
+        // エラーモードを例外に設定
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        // デフォルトのフェッチモードを連想配列に設定
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        // プリペアドステートメントのエミュレーションを無効化
+        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+        return $pdo;
+    } catch (PDOException $e) {
+        // 本番環境ではエラーメッセージを直接表示せず、ログに記録するなどの処理を行うべきです
+        echo 'Connection failed: ' . $e->getMessage();
+        exit;
+    }
+}
+?>
+
+----------------------------------------------------------------------------------------------------
+少し戻します。
+<?php
+// question.php
+// 質問一覧を新しいデータから順に表示し、検索機能を提供する
+global $pdo;
+var_dump($pdo);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+require_once 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+// 検索結果を出す関数
+function searchQuestions($pdo, $query, $debug = false) {
+    if (!$pdo) {
+        throw new Exception('データベース接続が確立されていません。');
+    }
+    $sql = "SELECT * FROM questions WHERE question LIKE :query ORDER BY date DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['query' => '%' . $query . '%']);
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // デバッグ出力
+    if ($debug) {
+        echo "Search query: " . $query . "<br>";
+        echo "SQL: " . $sql . "<br>";
+        echo "Result count: " . count($result) . "<br>";
+        var_dump($result);
+    }
+    
+    return $result;
+}
+
+
+$err = '';
+$questions = []; // 質問一覧を格納する配列
+
+// 検索クエリの取得
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// 質問一覧を取得
+// try {
+//     if (!empty($search_query)) {
+//         // 検索クエリがある場合は検索結果を取得
+//         $questions = searchQuestions($search_query);
+//     } else {
+//         // 検索クエリがない場合は全ての質問を取得
+//         $questions = getQuestion();
+//     }
+//     if ($questions === false) {
+//         $err = '質問の取得に失敗しました。';
+//     }
+// } catch (Exception $e) {
+//     $err = 'エラーが発生しました: ' . $e->getMessage();
+// }
+
+// 質問一覧を取得
+try {
+    if (!empty($search_query)) {
+        echo "Searching questions<br>"; // デバッグ出力
+        $questions = searchQuestions($pdo, $search_query, true);
+    } else {
+        echo "Getting all questions<br>"; // デバッグ出力
+        $questions = getQuestion();
+    }
+    if ($questions === false) {
+        $err = '質問の取得に失敗しました。';
+    }
+    echo "Question count: " . count($questions) . "<br>"; // デバッグ出力
+} catch (Exception $e) {
+    $err = 'エラーが発生しました: ' . $e->getMessage();
+    error_log('Error in question search: ' . $e->getMessage());
+}
+
+// 削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $questionId = isset($_POST['questionId']) ? $_POST['questionId'] : null;
+    if ($questionId) {
+        // deleteQuestion関数を使用して質問を削除
+        if (!deleteQuestion($questionId)) {
+            $err = '質問の削除に失敗しました。';
+        } else {
+            // 削除成功時に質問一覧を更新
+            $questions = getQuestion();
+        }
+    } else {
+        $err = '質問IDが指定されていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <title>質問一覧画面</title>
+</head>
+
+<main class="question-page">
+    <h1 class="question-title">質問一覧</h1>
+    <div class="question-actions">
+        <?php if ($isLoggedIn): ?>
+            <!-- ログイン済みの場合、質問投稿とログアウトボタンを表示 -->
+            <form action="questionInput.php" method="get">
+                <button type="submit" class="btn">質問をする</button>
+            </form>
+            <form action="index.php" method="post" class="question-logout-form">
+                <input type="hidden" name="logout" value="1">
+                <button type="submit" class="btn btn-second">ログアウト</button>
+            </form>
+        <?php else: ?>
+            <!-- 未ログインの場合、ログインボタンを表示 -->
+            <form action="index.php" method="get" class="question-login-form">
+                <button type="submit" class="btn-second">ログイン</button>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($err): ?>
+        <!-- エラーメッセージがある場合に表示 -->
+        <p class="error-message"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+
+
+
+    <?php if (!empty($search_query)): ?>
+        <!-- 検索クエリがある場合、検索結果であることを表示 -->
+        <p class="search-result">検索結果: "<?php echo htmlspecialchars($search_query); ?>"</p>
+    var_dump($search_query);
+    var_dump(count($questions));
+    <?php endif; ?>
+
+    <div class="question-list">
+        <?php if (empty($questions)): ?>
+            <!-- 質問がない場合のメッセージを表示 -->
+            <p class="no-questions">質問がありません。</p>
+        <?php else: ?>
+            <!-- 質問一覧の表示 -->
+            <?php foreach ($questions as $q): ?>
+                <div class="question-item">
+                    <h2 class="question-item-title"><?php echo htmlspecialchars($q['name']); ?>の質問</h2>
+                    <p class="question-item-content"><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+                    <p class="question-item-date">投稿日：<?php echo htmlspecialchars($q['date']); ?></p>
+                    <div class="question-item-actions">
+                        <!-- 質問の詳細ページへのリンク -->
+                        <form action="detail.php" method="get" class="question-detail-form">
+                            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                            <button type="submit" class="btn btn-detail">詳細</button>
+                        </form>
+                        <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                            <!-- 質問の投稿者のみに削除ボタンを表示 -->
+                            <form action="question.php" method="post" class="question-delete-form">
+                                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                                <button type="submit" name="delete" value="1" class="btn btn-delete">削除</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+
+下記メッセージの対処からやり直しましょう
+Warning: Undefined array key "name" in /Applications/XAMPP/xamppfiles/htdocs/develop/QAbbs/question.php on line 143
+
+Deprecated: htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in /Applications/XAMPP/xamppfiles/htdocs/develop/QAbbs/question.php on line 143
+----------------------------------------------------------------------------------------------------
+このコードでデバックの部分は、非表示（コメント）にしたいです。
+<?php
+// question.php
+// 質問一覧を新しいデータから順に表示し、検索機能を提供する
+global $pdo;
+var_dump($pdo);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+require_once 'includes/functions.php'; // 必要な関数を含むファイルをインクルード
+include 'includes/header.php';
+
+$err = '';
+$questions = []; // 質問一覧を格納する配列
+
+// 検索クエリの取得
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// 質問一覧を取得
+try {
+    if (!empty($search_query)) {
+        echo "Searching questions<br>"; // デバッグ出力
+        $questions = searchQuestions($pdo, $search_query, true);
+    } else {
+        echo "Getting all questions<br>"; // デバッグ出力
+        $questions = getQuestion();
+    }
+    if ($questions === false) {
+        $err = '質問の取得に失敗しました。';
+    }
+    echo "Question count: " . count($questions) . "<br>"; // デバッグ出力
+} catch (Exception $e) {
+    $err = 'エラーが発生しました: ' . $e->getMessage();
+    error_log('Error in question search: ' . $e->getMessage());
+}
+
+// 削除処理
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $questionId = isset($_POST['questionId']) ? $_POST['questionId'] : null;
+    if ($questionId) {
+        // deleteQuestion関数を使用して質問を削除
+        if (!deleteQuestion($questionId)) {
+            $err = '質問の削除に失敗しました。';
+        } else {
+            // 削除成功時に質問一覧を更新
+            $questions = getQuestion();
+        }
+    } else {
+        $err = '質問IDが指定されていません。';
+    }
+}
+
+// ログインユーザーの確認
+$isLoggedIn = isset($_SESSION['user_id']);
+?>
+
+<head>
+    <meta charset="UTF-8">
+    <title>質問一覧画面</title>
+</head>
+
+<main class="question-page">
+    <h1 class="question-title">質問一覧</h1>
+    <div class="question-actions">
+        <?php if ($isLoggedIn): ?>
+            <!-- ログイン済みの場合、質問投稿とログアウトボタンを表示 -->
+            <form action="questionInput.php" method="get">
+                <button type="submit" class="btn">質問をする</button>
+            </form>
+            <form action="index.php" method="post" class="question-logout-form">
+                <input type="hidden" name="logout" value="1">
+                <button type="submit" class="btn btn-second">ログアウト</button>
+            </form>
+        <?php else: ?>
+            <!-- 未ログインの場合、ログインボタンを表示 -->
+            <form action="index.php" method="get" class="question-login-form">
+                <button type="submit" class="btn-second">ログイン</button>
+            </form>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($err): ?>
+        <!-- エラーメッセージがある場合に表示 -->
+        <p class="error-message"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+
+    <?php if (!empty($search_query)): ?>
+    <!-- 検索クエリがある場合、検索結果であることを表示 -->
+    <p class="search-result">検索結果: "<?php echo htmlspecialchars($search_query); ?>"</p>
+    <?php
+    var_dump($search_query);
+    var_dump(count($questions));
+    ?>
+<?php endif; ?>
+    <div class="question-list">
+    <?php if (empty($questions)): ?>
+        <!-- 質問がない場合のメッセージを表示 -->
+        <p class="no-questions">質問がありません。</p>
+    <?php else: ?>
+        <!-- 質問一覧の表示 -->
+        <?php foreach ($questions as $q): ?>
+            <div class="question-item">
+                <h2 class="question-item-title"><?php echo htmlspecialchars($q['username']); ?>の質問</h2>
+                <p class="question-item-content"><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+                <p class="question-item-date">投稿日：<?php echo htmlspecialchars($q['date']); ?></p>
+                <div class="question-item-actions">
+                    <!-- 質問の詳細ページへのリンク -->
+                    <form action="detail.php" method="get" class="question-detail-form">
+                        <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                        <button type="submit" class="btn btn-detail">詳細</button>
+                    </form>
+                    <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                        <!-- 質問の投稿者のみに削除ボタンを表示 -->
+                        <form action="question.php" method="post" class="question-delete-form">
+                            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                            <button type="submit" name="delete" value="1" class="btn btn-delete">削除</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
+
+</main>
+
+<?php
+include 'includes/footer.html';
+?>
+----------------------------------------------------------------------------------------------------
+ばっちりです！
+検索で今は、質問内容にひっかかるものでしたが、
+追加で質問者の名前も検索結果候補にでるようすることは、難しいですか？
+----------------------------------------------------------------------------------------------------
+ここまでで、最低限必要な要件は、定義できたかと思います。
+ご協力ありがとうございます。
+
+
+可能であれば、他にも追加要件としてあるのですが、協力してももらえますか？
+----------------------------------------------------------------------------------------------------
+
+追加要件の例として、10個ほどあります。
+以下に記します。
+⚫ 自動ログイン機能（１度ログインに成功していれば、１週間程度ログイン認証操作を省略する）
+⚫ いいねボタンの作成
+⚫ 質問に対する回答数の表示
+⚫ 質問クローズ機能
+⚫ パスワード変更機能
+⚫ 匿名での質問・回答機能
+⚫ 画像アップロード機能
+⚫ 長い文章の短縮表示機能
+⚫ 質問数・回答数が多い場合のページング機能
+⚫ 質問のカテゴリ化
+
+これらの内容で、どれから追加していくのがいいと考えますか？
+それぞれ理由を教えていただけますか？
+
+
+➡︎
+これらの追加要件はすべて価値があり、システムを大幅に改善する可能性があります。
+優先順位を付けるとすれば、以下のようになるでしょう：
+1. 質問に対する回答数の表示
+   理由：比較的実装が容易で、ユーザーに即座に価値を提供します。質問の人気度や重要性を示す指標となります。
+
+2. 長い文章の短縮表示機能
+   理由：ユーザー体験を向上させ、多くの質問を効率的に閲覧できるようになります。実装も比較的簡単です。
+
+3. パスワード変更機能
+   理由：セキュリティ上重要な機能で、ユーザーアカウントの安全性を高めます。基本的なアカウント管理機能として必要です。
+
+4. 質問数・回答数が多い場合のページング機能
+   理由：システムの拡張性を高め、パフォーマンスを向上させます。データ量が増えても快適に使用できるようになります。
+
+5. いいねボタンの作成
+   理由：ユーザーエンゲージメントを高め、質の高い質問や回答を識別するのに役立ちます。
+
+6. 質問のカテゴリ化
+   理由：情報の整理と検索性を向上させます。ユーザーが関心のある話題を見つけやすくなります。
+
+7. 自動ログイン機能
+   理由：ユーザー体験を向上させますが、セキュリティ面での配慮が必要です。
+
+8. 匿名での質問・回答機能
+   理由：より多くのユーザーが参加しやすくなりますが、モデレーションの課題が生じる可能性があります。
+
+9. 質問クローズ機能
+   理由：解決済みの質問を管理するのに役立ちますが、適切な実装が必要です。
+
+10. 画像アップロード機能
+    理由：質問や回答の説明に役立ちますが、ストレージやセキュリティの考慮が必要で、実装が比較的複雑です。
+
+これらの機能を順番に実装していくことで、システムの機能性と使いやすさを段階的に向上させることができます。
+各機能の実装後にユーザーフィードバックを収集し、必要に応じて調整することをお勧めします。
+
+
+----------------------------------------------------------------------------------------------------
+まず、はじめに自動ログイン機能を実装したいと考えています。
+１度ログイン成功していれば一週間程度ログイン認証操作を省略する機能を入れたいと思います。
+
+実装できました。
+ありがとうございます。
+１点気になる点がありまして、ログインしている場合ログインしていることがわかる表記などできますか？
+例えば、ログイン中は、index.phpのTOPページにいくと、「ログインしています」とメッセージを表示して、ログイン項目が表示されないようなイメージです
+
+----------------------------------------------------------------------------------------------------
+では、次にいいねボタンの作成を進めたいと思います。
+
+JavaScriptを使うことは、できない仕様のため無しで進めたいのですが可能ですか？
+
+
+いいねボタンを実装するための手順を示します：
+データベースの準備
+バックエンド処理の実装
+フロントエンドの実装
+
+1. データベースの準備（前回と同じ）
+
+2. バックエンド処理の実装（functions.php に追加）
+function addLike($userId, $questionId) {
+    global $pdo;
+    $stmt = $pdo->prepare("INSERT IGNORE INTO likes (user_id, question_id) VALUES (?, ?)");
+    return $stmt->execute([$userId, $questionId]);
+}
+
+function removeLike($userId, $questionId) {
+    global $pdo;
+    $stmt = $pdo->prepare("DELETE FROM likes WHERE user_id = ? AND question_id = ?");
+    return $stmt->execute([$userId, $questionId]);
+}
+
+function getLikeCount($questionId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE question_id = ?");
+    $stmt->execute([$questionId]);
+    return $stmt->fetchColumn();
+}
+
+function hasUserLiked($userId, $questionId) {
+    global $pdo;
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE user_id = ? AND question_id = ?");
+    $stmt->execute([$userId, $questionId]);
+    return $stmt->fetchColumn() > 0;
+}
+
+
+3. いいね処理の実装（question.php に追加）
+// いいね処理
+if (isset($_POST['like']) && $isLoggedIn) {
+    $questionId = $_POST['question_id'];
+    $userId = $_SESSION['user_id'];
+    
+    if (hasUserLiked($userId, $questionId)) {
+        removeLike($userId, $questionId);
+    } else {
+        addLike($userId, $questionId);
+    }
+    
+    // 現在のページにリダイレクト
+    header("Location: " . $_SERVER['PHP_SELF'] . "?" . $_SERVER['QUERY_STRING']);
+    exit;
+}
+
+
+4. フロントエンドの実装（question.php の質問表示部分を修正）
+<?php foreach ($questions as $q): ?>
+    <div class="question-item">
+        <h2 class="question-item-title"><?php echo htmlspecialchars($q['username']); ?>の質問</h2>
+        <p class="question-item-content"><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+        <p class="question-item-date">投稿日：<?php echo htmlspecialchars($q['date']); ?></p>
+        <div class="question-item-actions">
+            <form action="detail.php" method="get" class="question-detail-form">
+                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                <button type="submit" class="btn btn-detail">詳細</button>
+            </form>
+            <?php if ($isLoggedIn): ?>
+                <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
+                    <input type="hidden" name="question_id" value="<?php echo htmlspecialchars($q['id']); ?>">
+                    <button type="submit" name="like" class="btn <?php echo hasUserLiked($_SESSION['user_id'], $q['id']) ? 'btn-liked' : 'btn-like'; ?>">
+                        いいね (<?php echo getLikeCount($q['id']); ?>)
+                    </button>
+                </form>
+            <?php endif; ?>
+            <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                <form action="question.php" method="post" class="question-delete-form">
+                    <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                    <button type="submit" name="delete" value="1" class="btn btn-delete">削除</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endforeach; ?>
+
+
+5. CSSの追加（styles.css に追加）
+.btn-like {
+    background-color: #f0f0f0;
+    color: #333;
+}
+
+.btn-liked {
+    background-color: #ff69b4;
+    color: white;
+}
+
+この実装では、いいねボタンをクリックするとページが再読み込みされます。
+ボタンの状態（いいね済みかどうか）と、いいねの数は、ページ読み込み時に PHP で判断・計算されます。
+
+この方法では、JavaScriptを使用せずにいいね機能を実装できますが、以下の点に注意してください：
+1. ページの再読み込みが発生するため、ユーザー体験が少し低下する可能性があります。
+2. 複数のユーザーが同時にいいねを押した場合、最後に処理された操作のみが反映されます。
+
+これらの制限はありますが、基本的な機能は実現できます。
+必要に応じて、この実装をベースに機能を拡張したり、パフォーマンスを改善したりすることができます。
+
+----------------------------------------------------------------------------------------------------
+次は、1番の質問に対する回答数の表示を実装したいと思います。
+
+
+質問に対する回答数の表示機能を実装するのは素晴らしい選択です。この機能により、ユーザーは各質問の人気度や活発さを一目で把握できるようになります。以下に、実装手順を示します：
+
+1. データベースクエリの修正
+2. 関数の追加
+3. 表示部分の修正
+
+### 1. データベースクエリの修正
+`functions.php` 内の `getQuestion()` 関数を以下のように修正します：
+function getQuestion() {
+    global $pdo;
+    $sql = "SELECT q.*, u.name AS username, COUNT(a.id) AS answer_count 
+            FROM questions q 
+            JOIN users u ON q.userId = u.id 
+            LEFT JOIN answers a ON q.id = a.questionId 
+            GROUP BY q.id 
+            ORDER BY q.date DESC";
+    $stmt = $pdo->query($sql);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+この修正により、各質問に対する回答数も同時に取得できます。
+
+### 2. 関数の追加
+回答数を個別に取得する関数を `functions.php` に追加します：
+function getAnswerCount($questionId) {
+    global $pdo;
+    $sql = "SELECT COUNT(*) FROM answers WHERE questionId = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$questionId]);
+    return $stmt->fetchColumn();
+}
+```
+
+### 3. 表示部分の修正
+`question.php` の質問表示部分を以下のように修正します：
+<?php foreach ($questions as $q): ?>
+    <div class="question-item">
+        <h2 class="question-item-title"><?php echo htmlspecialchars($q['username']); ?>の質問</h2>
+        <p class="question-item-content"><?php echo nl2br(htmlspecialchars($q['question'])); ?></p>
+        <p class="question-item-date">投稿日：<?php echo htmlspecialchars($q['date']); ?></p>
+        <p class="question-item-answers">回答数：<?php echo $q['answer_count']; ?></p>
+        <div class="question-item-actions">
+            <form action="detail.php" method="get" class="question-detail-form">
+                <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                <button type="submit" class="btn btn-detail">詳細</button>
+            </form>
+            
+            <?php if ($isLoggedIn): ?>
+                <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post" class="question-like-form">
+                    <input type="hidden" name="question_id" value="<?php echo htmlspecialchars($q['id']); ?>">
+                    <button type="submit" name="like" class="btn <?php echo hasUserLiked($_SESSION['user_id'], $q['id']) ? 'btn-liked' : 'btn-like'; ?>">
+                        いいね (<?php echo getLikeCount($q['id']); ?>)
+                    </button>
+                </form>
+            <?php endif; ?>
+            
+            <?php if ($isLoggedIn && $_SESSION['user_id'] == $q['userId']): ?>
+                <form action="question.php" method="post" class="question-delete-form">
+                    <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($q['id']); ?>">
+                    <button type="submit" name="delete" value="1" class="btn btn-delete">削除</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endforeach; ?>
+
+### 4. CSSの追加
+`styles.css` に以下のスタイルを追加して、回答数の表示をカスタマイズします：
+.question-item-answers {
+    font-size: 0.9em;
+    color: #aaa;
+    margin-bottom: 10px;
+}
+
+これらの変更を適用することで、各質問の回答数が表示されるようになります。
+ユーザーは質問一覧ページで各質問の回答数を確認できるようになり、より活発な議論が行われている質問を簡単に識別できるようになります。
+実装後、ページをリロードして正しく表示されているか確認してください。何か問題があれば、お知らせください。
+
+----------------------------------------------------------------------------------------------------
+無事できているので、次の機能の実装に入りましょう
+その中から、手頃で、あると利便性が高くなる機能の優先度を教えてください
+
+
+これらの機能の中から、実装の難易度と利便性を考慮して、以下の順で優先度を提案します：
+1. パスワード変更機能
+   - 理由：セキュリティ面で重要であり、ユーザーにとって必須の機能です。比較的実装も簡単です。
+
+2. 質問クローズ機能
+   - 理由：質問が解決済みかどうかを明確にでき、ユーザー体験を向上させます。実装も比較的straightforwardです。
+
+3. 長い文章の短縮表示機能
+   - 理由：ユーザビリティを向上させ、多くの質問を効率的に閲覧できるようになります。実装も比較的簡単です。
+
+4. 質問数・回答数が多い場合のページング機能
+   - 理由：サイトのパフォーマンスと使いやすさを向上させます。データが増えてきた際に必要になる機能です。
+
+5. 質問のカテゴリ化
+   - 理由：質問を整理し、ユーザーが必要な情報を見つけやすくなります。ただし、実装にはデータベース設計の変更が必要になる可能性があります。
+
+6. 匿名での質問・回答機能
+   - 理由：ユーザーが気軽に質問や回答ができるようになりますが、モデレーションの課題も生じる可能性があります。
+
+7. 画像アップロード機能
+   - 理由：質問や回答の説明に役立ちますが、実装にはセキュリティやストレージの考慮が必要で、比較的複雑になる可能性があります。
+
+これらの中から、まずはパスワード変更機能や質問クローズ機能など、
+上位の機能から実装を始めることをお勧めします。
+これらは比較的実装が簡単で、ユーザーにとっても有用な機能となります。
+
+----------------------------------------------------------------------------------------------------
+パスワード変更機能の実装は良い選択です。ユーザーのセキュリティを向上させる重要な機能です。以下に、パスワード変更機能を実装するための手順を示します：
+
+1. パスワード変更ページの作成
+2. パスワード変更フォームの実装
+3. パスワード変更処理の実装
+4. ナビゲーションへのリンク追加
+
+### 1. パスワード変更ページの作成
+
+新しいファイル `changePassword.php` を作成し、以下のコードを追加します：
+
+```php
+<?php
+session_start();
+require_once 'includes/functions.php';
+include 'includes/header.php';
+
+// ログインチェック
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php');
+    exit;
+}
+
+$err = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $currentPassword = $_POST['current_password'];
+    $newPassword = $_POST['new_password'];
+    $confirmPassword = $_POST['confirm_password'];
+
+    // 入力チェック
+    if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+        $err = 'すべての項目を入力してください。';
+    } elseif ($newPassword !== $confirmPassword) {
+        $err = '新しいパスワードと確認用パスワードが一致しません。';
+    } elseif (strlen($newPassword) < 8) {
+        $err = '新しいパスワードは8文字以上である必要があります。';
+    } else {
+        // パスワード変更処理
+        $userId = $_SESSION['user_id'];
+        if (changePassword($userId, $currentPassword, $newPassword)) {
+            $success = 'パスワードが正常に変更されました。';
+        } else {
+            $err = '現在のパスワードが正しくないか、パスワードの変更に失敗しました。';
+        }
+    }
+}
+?>
+
+<main>
+    <h1>パスワード変更</h1>
+    <?php if ($err): ?>
+        <p class="error-message"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    <?php if ($success): ?>
+        <p class="success-message"><?php echo htmlspecialchars($success); ?></p>
+    <?php endif; ?>
+    <form action="changePassword.php" method="post">
+        <div class="form-group">
+            <label for="current_password">現在のパスワード:</label>
+            <input type="password" id="current_password" name="current_password" required>
+        </div>
+        <div class="form-group">
+            <label for="new_password">新しいパスワード:</label>
+            <input type="password" id="new_password" name="new_password" required>
+        </div>
+        <div class="form-group">
+            <label for="confirm_password">新しいパスワード（確認）:</label>
+            <input type="password" id="confirm_password" name="confirm_password" required>
+        </div>
+        <button type="submit" class="btn">パスワードを変更</button>
+    </form>
+</main>
+
+<?php include 'includes/footer.html'; ?>
+```
+
+### 2. パスワード変更処理の実装
+
+`functions.php` に以下の関数を追加します：
+
+```php
+function changePassword($userId, $currentPassword, $newPassword) {
+    global $pdo;
+    
+    // 現在のパスワードを確認
+    $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    
+    if (!$user || !password_verify($currentPassword, $user['password'])) {
+        return false;
+    }
+    
+    // 新しいパスワードをハッシュ化
+    $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+    
+    // パスワードを更新
+    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+    return $stmt->execute([$hashedPassword, $userId]);
+}
+```
+
+### 3. ナビゲーションへのリンク追加
+
+`header.php` にパスワード変更ページへのリンクを追加します：
+
+```php
+<?php if (isset($_SESSION['user_id'])): ?>
+    <a href="changePassword.php">パスワード変更</a>
+<?php endif; ?>
+```
+
+### 4. スタイルの追加
+
+`styles.css` に以下のスタイルを追加します：
+
+```css
+.success-message {
+    color: green;
+    margin-bottom: 15px;
+}
+```
+
+これらの手順を実行することで、パスワード変更機能が実装されます。ユーザーはログイン後にパスワード変更ページにアクセスし、現在のパスワードと新しいパスワードを入力して変更できるようになります。
+
+実装後、以下の点をテストしてください：
+- ログイン状態でのみパスワード変更ページにアクセスできること
+- 現在のパスワードが正しくない場合はエラーが表示されること
+- 新しいパスワードと確認用パスワードが一致しない場合はエラーが表示されること
+- パスワードが正常に変更された場合は成功メッセージが表示されること
+- 変更後の新しいパスワードでログインできること
+
+----------------------------------------------------------------------------------------------------
+ハッシュ化なしでの作成
+
+
+承知しました。テストサイトであっても、本番環境ではセキュリティ上の理由からパスワードのハッシュ化を強くお勧めしますが、テスト目的であれば、ハッシュ化なしで進めることも可能です。
+
+それでは、ハッシュ化なしでパスワード変更機能を実装しましょう。以下の手順で修正を行います：
+
+1. `changePassword` 関数の修正
+2. パスワード変更ページ（`changePassword.php`）の調整
+
+### 1. `changePassword` 関数の修正
+
+`functions.php` 内の `changePassword` 関数を以下のように修正します：
+
+```php
+function changePassword($userId, $currentPassword, $newPassword) {
+    global $pdo;
+    
+    try {
+        // 現在のパスワードを確認
+        $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if (!$user || $user['password'] !== $currentPassword) {
+            return false;
+        }
+        
+        // パスワードを更新
+        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $result = $stmt->execute([$newPassword, $userId]);
+
+        return $result;
+    } catch (PDOException $e) {
+        error_log("Password change error: " . $e->getMessage());
+        return false;
+    }
+}
+```
+
+### 2. パスワード変更ページ（`changePassword.php`）の調整
+
+`changePassword.php` の内容を以下のように修正します：
+
+```php
+<?php
+session_start();
+require_once 'includes/functions.php';
+include 'includes/header.php';
+
+// ログインチェック
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php');
+    exit;
+}
+
+$err = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $currentPassword = $_POST['current_password'];
+    $newPassword = $_POST['new_password'];
+    $confirmPassword = $_POST['confirm_password'];
+
+    // 入力チェック
+    if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+        $err = 'すべての項目を入力してください。';
+    } elseif ($newPassword !== $confirmPassword) {
+        $err = '新しいパスワードと確認用パスワードが一致しません。';
+    } elseif (strlen($newPassword) < 4) {  // 最小文字数を4に設定（テスト用）
+        $err = '新しいパスワードは4文字以上である必要があります。';
+    } else {
+        // パスワード変更処理
+        $userId = $_SESSION['user_id'];
+        if (changePassword($userId, $currentPassword, $newPassword)) {
+            $success = 'パスワードが正常に変更されました。';
+        } else {
+            $err = '現在のパスワードが正しくないか、パスワードの変更に失敗しました。';
+        }
+    }
+}
+?>
+
+<main>
+    <h1>パスワード変更</h1>
+    <?php if ($err): ?>
+        <p class="error-message"><?php echo htmlspecialchars($err); ?></p>
+    <?php endif; ?>
+    <?php if ($success): ?>
+        <p class="success-message"><?php echo htmlspecialchars($success); ?></p>
+    <?php endif; ?>
+    <form action="changePassword.php" method="post">
+        <div class="form-group">
+            <label for="current_password">現在のパスワード:</label>
+            <input type="password" id="current_password" name="current_password" required>
+        </div>
+        <div class="form-group">
+            <label for="new_password">新しいパスワード:</label>
+            <input type="password" id="new_password" name="new_password" required>
+        </div>
+        <div class="form-group">
+            <label for="confirm_password">新しいパスワード（確認）:</label>
+            <input type="password" id="confirm_password" name="confirm_password" required>
+        </div>
+        <button type="submit" class="btn">パスワードを変更</button>
+    </form>
+</main>
+
+<?php include 'includes/footer.html'; ?>
+```
+
+これらの変更により、パスワードをハッシュ化せずに直接保存・比較するようになります。ただし、以下の点に注意してください：
+
+1. セキュリティ：この方法は本番環境では絶対に使用しないでください。パスワードが平文で保存されるため、非常に危険です。
+2. 最小文字数：テスト用に最小文字数を4文字に設定しています。実際の運用では、より長い最小文字数（例：8文字以上）を設定することをお勧めします。
+
+これらの変更を適用した後、パスワード変更機能をテストしてみてください。現在のパスワードが正しく、新しいパスワードが条件を満たしている場合、パスワードが変更されるはずです。
+
+もし問題が解決しない場合や、新たな問題が発生した場合は、お知らせください。
+
+----------------------------------------------------------------------------------------------------
+次は、2の匿名での質問・回答機能を実装したいと思います。
+
+
+匿名での質問・回答機能を実装するのは良い選択です。この機能により、ユーザーがより気軽に質問や回答を投稿できるようになります。以下に、実装手順を示します：
+
+1. データベースの修正
+2. 質問投稿フォームの修正
+3. 回答投稿フォームの修正
+4. 質問表示の修正
+5. 回答表示の修正
+
+### 1. データベースの修正
+`questions` テーブルと `answers` テーブルに `is_anonymous` カラムを追加します。
+ALTER TABLE questions ADD COLUMN is_anonymous BOOLEAN DEFAULT FALSE;
+ALTER TABLE answers ADD COLUMN is_anonymous BOOLEAN DEFAULT FALSE;
+
+### 2. 質問投稿フォームの修正 (questionInput.php)
+
+質問投稿フォームに匿名オプションを追加します：
+<form action="questionInput.php" method="post" class="question-input-form">
+    <div class="question-input-group">
+        <label for="question" class="question-input-label">質問内容：</label>
+        <textarea id="question" name="question" class="question-input-textarea" required></textarea>
+    </div>
+    <div class="question-input-group">
+        <label for="is_anonymous" class="question-input-label">
+            <input type="checkbox" id="is_anonymous" name="is_anonymous" value="1">
+            匿名で投稿する
+        </label>
+    </div>
+    <div class="question-input-submit">
+        <button type="submit" class="question-input-submit-btn">質問を投稿</button>
+    </div>
+</form>
+
+質問投稿処理の部分も修正します：
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $question = $_POST['question'];
+    $isAnonymous = isset($_POST['is_anonymous']) ? 1 : 0;
+    
+    if (empty($question)) {
+        $err = '質問を入力してください。';
+    } else {
+        $result = addQuestion($_SESSION['user_id'], $question, $isAnonymous);
+        if ($result) {
+            header('Location: question.php');
+            exit;
+        } else {
+            $err = '質問の投稿に失敗しました。';
+        }
+    }
+}
+
+### 3. 回答投稿フォームの修正 (answerInput.php)
+回答投稿フォームにも同様に匿名オプションを追加します：
+<form action="answerInput.php" method="post" class="answer-input-form">
+    <input type="hidden" name="questionId" value="<?php echo $questionId; ?>">
+    <div class="answer-input-group">
+        <label for="answer" class="answer-input-label">回答：</label>
+        <textarea id="answer" name="answer" class="answer-input-textarea" required></textarea>
+    </div>
+    <div class="answer-input-group">
+        <label for="is_anonymous" class="answer-input-label">
+            <input type="checkbox" id="is_anonymous" name="is_anonymous" value="1">
+            匿名で投稿する
+        </label>
+    </div>
+    <div class="answer-input-submit">
+        <button type="submit" class="answer-input-submit-btn">回答を投稿</button>
+    </div>
+</form>
+
+回答投稿処理の部分も修正します：
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $answer = $_POST['answer'];
+    $isAnonymous = isset($_POST['is_anonymous']) ? 1 : 0;
+    
+    if (empty($answer)) {
+        $err = '回答を入力してください。';
+    } else {
+        $result = addAnswer($_SESSION['user_id'], $questionId, $answer, $isAnonymous);
+        if ($result) {
+            header('Location: detail.php?questionId=' . $questionId);
+            exit;
+        } else {
+            $err = '回答の投稿に失敗しました。';
+        }
+    }
+}
+
+
+### 4. 質問表示の修正 (question.php, detail.php)
+質問表示部分を修正して、匿名の場合は「匿名ユーザー」と表示するようにします：
+<h2 class="question-item-title">
+    <?php echo $q['is_anonymous'] ? '匿名ユーザー' : htmlspecialchars($q['username']); ?>の質問
+</h2>
+
+### 5. 回答表示の修正 (detail.php)
+回答表示部分も同様に修正します：
+<h3 class="detail-answer-name">
+    <?php echo $answer['is_anonymous'] ? '匿名ユーザー' : htmlspecialchars($answer['username']); ?>の回答
+</h3>
+
+### 6. functions.php の修正
+`addQuestion` と `addAnswer` 関数を修正して、`is_anonymous` パラメータを追加します：
+function addQuestion($userId, $question, $isAnonymous) {
+    global $pdo;
+    $sql = "INSERT INTO questions (userId, question, is_anonymous) VALUES (?, ?, ?)";
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$userId, $question, $isAnonymous]);
+}
+
+function addAnswer($userId, $questionId, $answer, $isAnonymous) {
+    global $pdo;
+    $sql = "INSERT INTO answers (userId, questionId, answer, is_anonymous) VALUES (?, ?, ?, ?)";
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$userId, $questionId, $answer, $isAnonymous]);
+}
+
+これらの変更を適用することで、ユーザーは匿名で質問や回答を投稿できるようになります。
+実装後、機能が正しく動作するかテストしてください。
+質問や問題があれば、お知らせください。
+
+----------------------------------------------------------------------------------------------------
+
+
+
+匿名での質問・回答機能を実装するのは良い選択です。この機能により、ユーザーがより気軽に質問や回答を投稿できるようになります。以下に、実装手順を示します：
+
+1. データベースの修正
+2. 質問投稿フォームの修正
+3. 回答投稿フォームの修正
+4. 質問表示の修正
+5. 回答表示の修正
+
+### 1. データベースの修正
+
+`questions` テーブルと `answers` テーブルに `is_anonymous` カラムを追加します。
+
+```sql
+ALTER TABLE questions ADD COLUMN is_anonymous BOOLEAN DEFAULT FALSE;
+ALTER TABLE answers ADD COLUMN is_anonymous BOOLEAN DEFAULT FALSE;
+```
+
+### 2. 質問投稿フォームの修正 (questionInput.php)
+
+質問投稿フォームに匿名オプションを追加します：
+
+```php
+<form action="questionInput.php" method="post" class="question-input-form">
+    <div class="question-input-group">
+        <label for="question" class="question-input-label">質問内容：</label>
+        <textarea id="question" name="question" class="question-input-textarea" required></textarea>
+    </div>
+    <div class="question-input-group">
+        <label for="is_anonymous" class="question-input-label">
+            <input type="checkbox" id="is_anonymous" name="is_anonymous" value="1">
+            匿名で投稿する
+        </label>
+    </div>
+    <div class="question-input-submit">
+        <button type="submit" class="question-input-submit-btn">質問を投稿</button>
+    </div>
+</form>
+```
+
+質問投稿処理の部分も修正します：
+
+```php
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $question = $_POST['question'];
+    $isAnonymous = isset($_POST['is_anonymous']) ? 1 : 0;
+    
+    if (empty($question)) {
+        $err = '質問を入力してください。';
+    } else {
+        $result = addQuestion($_SESSION['user_id'], $question, $isAnonymous);
+        if ($result) {
+            header('Location: question.php');
+            exit;
+        } else {
+            $err = '質問の投稿に失敗しました。';
+        }
+    }
+}
+```
+
+### 3. 回答投稿フォームの修正 (answerInput.php)
+
+回答投稿フォームにも同様に匿名オプションを追加します：
+
+```php
+<form action="answerInput.php" method="post" class="answer-input-form">
+    <input type="hidden" name="questionId" value="<?php echo $questionId; ?>">
+    <div class="answer-input-group">
+        <label for="answer" class="answer-input-label">回答：</label>
+        <textarea id="answer" name="answer" class="answer-input-textarea" required></textarea>
+    </div>
+    <div class="answer-input-group">
+        <label for="is_anonymous" class="answer-input-label">
+            <input type="checkbox" id="is_anonymous" name="is_anonymous" value="1">
+            匿名で投稿する
+        </label>
+    </div>
+    <div class="answer-input-submit">
+        <button type="submit" class="answer-input-submit-btn">回答を投稿</button>
+    </div>
+</form>
+```
+
+回答投稿処理の部分も修正します：
+
+```php
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $answer = $_POST['answer'];
+    $isAnonymous = isset($_POST['is_anonymous']) ? 1 : 0;
+    
+    if (empty($answer)) {
+        $err = '回答を入力してください。';
+    } else {
+        $result = addAnswer($_SESSION['user_id'], $questionId, $answer, $isAnonymous);
+        if ($result) {
+            header('Location: detail.php?questionId=' . $questionId);
+            exit;
+        } else {
+            $err = '回答の投稿に失敗しました。';
+        }
+    }
+}
+```
+
+### 4. 質問表示の修正 (question.php, detail.php)
+
+質問表示部分を修正して、匿名の場合は「匿名ユーザー」と表示するようにします：
+
+```php
+<h2 class="question-item-title">
+    <?php echo $q['is_anonymous'] ? '匿名ユーザー' : htmlspecialchars($q['username']); ?>の質問
+</h2>
+```
+
+### 5. 回答表示の修正 (detail.php)
+
+回答表示部分も同様に修正します：
+
+```php
+<h3 class="detail-answer-name">
+    <?php echo $answer['is_anonymous'] ? '匿名ユーザー' : htmlspecialchars($answer['username']); ?>の回答
+</h3>
+```
+
+### 6. functions.php の修正
+
+`addQuestion` と `addAnswer` 関数を修正して、`is_anonymous` パラメータを追加します：
+
+```php
+function addQuestion($userId, $question, $isAnonymous) {
+    global $pdo;
+    $sql = "INSERT INTO questions (userId, question, is_anonymous) VALUES (?, ?, ?)";
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$userId, $question, $isAnonymous]);
+}
+
+function addAnswer($userId, $questionId, $answer, $isAnonymous) {
+    global $pdo;
+    $sql = "INSERT INTO answers (userId, questionId, answer, is_anonymous) VALUES (?, ?, ?, ?)";
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute([$userId, $questionId, $answer, $isAnonymous]);
+}
+```
+
+これらの変更を適用することで、ユーザーは匿名で質問や回答を投稿できるようになります。実装後、機能が正しく動作するかテストしてください。質問や問題があれば、お知らせください。
+
+----------------------------------------------------------------------------------------------------
+
+画像パスの修正で表示されました！ありがとうございます！！
+
+画像表示での今回表示までいった手順をまとめて教えてください。
+
+
+画像表示の問題が解決できて良かったです！今回の画像表示までの手順をまとめると、以下のようになります：
+
+1. データベースの修正:
+   - `questions`テーブルに`image_path`カラムを追加しました。
+   - 既存のレコードの`image_path`を正しいパスに更新しました。
+
+2. `getQuestion`関数の修正:
+   `functions.php`内の`getQuestion`関数を更新して、`image_path`も取得するようにしました。
+   ```php
+   function getQuestion(): array|false
+   {
+       $pdo = connect();
+       $stmt = $pdo->query('
+       SELECT
+           q.id,
+           q.question,
+           q.date,
+           q.userId,
+           q.image_path,
+           q.is_anonymous,
+           u.name AS username,
+           (SELECT COUNT(*) FROM answers a WHERE a.questionId = q.id AND a.deleteFlg = 0) AS answer_count
+       FROM questions q
+       JOIN users u ON q.userId = u.id
+       WHERE q.deleteFlg = 0
+       ORDER BY q.date DESC, q.id DESC
+       ');
+       return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: false;
+   }
+   ```
+
+3. `question.php`の修正:
+   画像を表示するHTMLを追加しました。
+   ```php
+   <?php if (!empty($q['image_path'])): ?>
+       <img src="<?php echo htmlspecialchars($q['image_path']); ?>" alt="質問画像" class="question-image">
+   <?php endif; ?>
+   ```
+
+4. 画像パスの修正:
+   データベースに保存されている画像パスを、Webサーバーからアクセス可能な正しいパスに修正しました。例えば、相対パスを使用する場合：
+   ```sql
+   UPDATE questions SET image_path = REPLACE(image_path, '/Applications/XAMPP/xamppfiles/htdocs/develop/QAbbs/includes/../', '');
+   ```
+
+5. .htaccessファイルの設定:
+   プロジェクトのルートディレクトリに`.htaccess`ファイルを作成し、以下の内容を追加しました：
+   ```
+   RewriteEngine On
+   RewriteRule ^uploads/(.*)$ uploads/$1 [L]
+   ```
+
+6. アップロードディレクトリの権限設定:
+   `uploads`ディレクトリの権限を適切に設定し、Webサーバーが読み取り可能になるようにしました。
+   ```
+   chmod -R 755 /path/to/your/uploads/directory
+   ```
+
+7. エラーログの確認と修正:
+   PHPのエラーログを確認し、画像表示に関する問題を特定し修正しました。
+
+8. デバッグ情報の活用:
+   必要に応じて`var_dump($questions);`などを使用し、取得されたデータの内容を確認しました。
+
+これらの手順を順番に実行することで、画像の表示問題を解決し、正しく画像を表示できるようになりました。今後同様の問題が発生した場合も、これらの手順を参考にしながら問題解決を進めることができます。
+
+----------------------------------------------------------------------------------------------------
+質問クローズ機能がどういうものか？
+
+
+質問クローズ機能について詳しく説明します。
+## 質問クローズ機能とは？
+質問クローズ機能は、特定の質問が解決済みであることを示すための機能です。
+この機能を使用することで、質問者や他のユーザーがその質問に対する新しい回答を投稿できなくなります。主に以下のような目的があります：
+1. **質問の整理**:
+   - 解決済みの質問を明確にし、ユーザーが新しい質問に集中できるようにします。
+2. **ユーザー体験の向上**:
+   - 質問がクローズされている場合、他のユーザーはその質問に対する回答を投稿できないため、無駄な回答を避けることができます。
+3. **管理の効率化**:
+   - 管理者や質問者が、解決済みの質問を簡単に管理できるようにします。
+
+## 実装の流れ
+1. **データベースの変更**:
+   - `questions`テーブルに`is_closed`というブール型のカラムを追加し、質問がクローズされているかどうかを管理します。
+2. **クローズ機能の関数の作成**:
+   - 質問をクローズするための関数（例：`closeQuestion()`）を作成し、`is_closed`カラムを`TRUE`に設定します。
+   - 質問がクローズされているかを確認するための関数（例：`isQuestionClosed()`）も作成します。
+3. **ユーザーインターフェースの更新**:
+   - 質問詳細ページに「質問をクローズ」ボタンを追加し、質問者がその質問をクローズできるようにします。
+   - 質問がクローズされた場合は、クローズされたことを示すメッセージを表示し、新しい回答の投稿を禁止します。
+4. **回答機能の制限**:
+   - 質問がクローズされている場合、新しい回答を投稿できないようにします。
+
+## ユーザーの操作フロー
+1. 質問者が質問を投稿する。
+2. 質問に対する回答が寄せられる。
+3. 質問者が問題が解決したと感じた場合、「質問をクローズ」ボタンをクリックする。
+4. 質問がクローズされ、他のユーザーはその質問に対する新しい回答を投稿できなくなる。
+5. 質問がクローズされたことが明示され、他のユーザーに対してもその状態がわかるようになる。
+
+このように、質問クローズ機能はQ&Aサイトにおいて重要な役割を果たし、ユーザー体験を向上させるための便利な機能です。
+これにより、サイトの運営がよりスムーズになり、ユーザーが求める情報に迅速にアクセスできるようになります。
+
+----------------------------------------------------------------------------------------------------
+はい、質問クローズ機能の実装を進めていきましょう。以下の手順で実装していきます：
+
+1. データベースの修正
+2. 関数の追加
+3. ユーザーインターフェースの更新
+4. 処理の実装
+
+それでは、順番に進めていきましょう。
+
+1. データベースの修正:
+まず、`questions`テーブルに`is_closed`カラムを追加します。以下のSQLクエリを実行してください：
+
+```sql
+ALTER TABLE questions ADD COLUMN is_closed BOOLEAN DEFAULT FALSE;
+```
+
+2. 関数の追加:
+`functions.php`に以下の関数を追加します：
+
+```php
+// 質問をクローズする関数
+function closeQuestion(int $questionId): bool {
+    $pdo = connect();
+    $stmt = $pdo->prepare('UPDATE questions SET is_closed = TRUE WHERE id = :questionId');
+    return $stmt->execute(['questionId' => $questionId]);
+}
+
+// 質問がクローズされているかチェックする関数
+function isQuestionClosed(int $questionId): bool {
+    $pdo = connect();
+    $stmt = $pdo->prepare('SELECT is_closed FROM questions WHERE id = :questionId');
+    $stmt->execute(['questionId' => $questionId]);
+    return (bool)$stmt->fetchColumn();
+}
+```
+
+3. ユーザーインターフェースの更新:
+`detail.php`に質問をクローズするボタンを追加し、クローズ状態を表示します。以下のコードを適切な位置に挿入してください：
+
+```php
+<?php if ($isLoggedIn && $_SESSION['user_id'] == $question['userId'] && !isQuestionClosed($questionId)): ?>
+    <form action="detail.php?questionId=<?php echo htmlspecialchars($questionId); ?>" method="post">
+        <input type="hidden" name="close_question" value="1">
+        <button type="submit" class="btn btn-warning">質問をクローズ</button>
+    </form>
+<?php endif; ?>
+
+<?php if (isQuestionClosed($questionId)): ?>
+    <p class="alert alert-info">この質問はクローズされています。</p>
+<?php endif; ?>
+```
+
+4. 処理の実装:
+`detail.php`の先頭に以下のコードを追加して、クローズ処理を実装します：
+
+```php
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['close_question'])) {
+    if ($isLoggedIn && $_SESSION['user_id'] == $question['userId']) {
+        if (closeQuestion($questionId)) {
+            $successMessage = '質問がクローズされました。';
+        } else {
+            $err = '質問のクローズに失敗しました。';
+        }
+    } else {
+        $err = '質問をクローズする権限がありません。';
+    }
+}
+```
+
+5. 回答機能の制限:
+質問がクローズされている場合、新しい回答を投稿できないようにします。`detail.php`の回答フォーム部分を以下のように修正します：
+
+```php
+<?php if ($isLoggedIn && !isQuestionClosed($questionId)): ?>
+    <div class="detail-answer-action">
+        <form action="answerInput.php" method="get" class="detail-answer-form">
+            <input type="hidden" name="questionId" value="<?php echo htmlspecialchars($questionId); ?>">
+            <button type="submit" class="btn">回答をする</button>
+        </form>
+    </div>
+<?php elseif (isQuestionClosed($questionId)): ?>
+    <p class="alert alert-warning">この質問はクローズされているため、新しい回答を投稿できません。</p>
+<?php endif; ?>
+```
+
+これらの変更を適用することで、質問クローズ機能が実装されます。質問の作成者のみが質問をクローズでき、クローズされた質問には新しい回答を投稿できなくなります。また、クローズ状態が明確に表示されるようになります。
+
+実装後は、機能が正しく動作するかテストし、必要に応じて調整を行ってください。
+
+----------------------------------------------------------------------------------------------------
+以下は、残りの追加機能の例として提案された三つの機能の詳細です。
+
+1. **長い文章の短縮表示機能**:
+   - **概要**: 質問や回答が長い場合、最初の数行だけを表示し、「続きを読む」ボタンを設置して、ユーザーがクリックすると全文を表示する機能です。
+   - **目的**: ユーザーがページをスクロールする際に、視覚的にスッキリとした表示を保ち、重要な情報をすぐに把握できるようにします。
+   - **実装方法**:
+     - 質問や回答の内容を取得し、一定の文字数（例：100文字）を超える場合は、その部分をカットして「続きを読む」リンクを表示します。
+     - JavaScriptを使用して、リンクがクリックされたときに全文を表示するようにします。
+
+2. **質問数・回答数が多い場合のページング機能**:
+   - **概要**: 質問や回答が多い場合に、それらを複数のページに分割して表示する機能です。
+   - **目的**: ユーザーが情報をより簡単に閲覧できるようにし、ページの読み込み速度を向上させます。
+   - **実装方法**:
+     - 質問や回答の総数をカウントし、ページあたりの表示数を設定します。
+     - ページ番号を表示し、ユーザーが他のページに移動できるようにします。
+     - SQLクエリに`LIMIT`と`OFFSET`を使用して、必要なデータのみを取得します。
+
+3. **質問のカテゴリ化**:
+   - **概要**: 質問にカテゴリを付けて分類する機能です。例えば、「技術」、「生活」、「趣味」などのカテゴリを設定します。
+   - **目的**: ユーザーが興味のある質問を簡単に見つけることができ、サイトのナビゲーションを向上させます。
+   - **実装方法**:
+     - `categories`テーブルを作成し、各カテゴリを保存します。
+     - 質問投稿時にカテゴリを選択できるようにし、質問情報にカテゴリIDを追加します。
+     - 質問一覧を表示する際に、カテゴリでフィルタリングするオプションを提供します。
+
+これらの機能の中から、次に実装したい機能を選択できます。どの機能に進みたいですか？または、他に実装したい機能があれば教えてください。
+
+----------------------------------------------------------------------------------------------------
+他の機能を実装する前に１点やりたい作業があります。
+それは、ソースコードの可読性をあげることです。
+今、全体的にソースコードがみづらくなっており
+どのような機能、意味、動きをしているのかもコメントで細かく記載したいと考えています。
+一緒に協力してもらえますか？
+
+
+----------------------------------------------------------------------------------------------------
+現在、最新のfunctions.phpを共有します。
+コメントは、日本語での記載でお願いします。
+なるべく詳細の記載をしてください。
+多いので、２分割に分けて送ります。
+まずは、前半です。
+
+
+----------------------------------------------------------------------------------------------------
+不具合が確認されました。
+状況としては、画像アップロード＆表示機能です。
+qustionInput.phpでは、画像の投稿をするとデータベースに登録されます。
+answerInputでは、画像を選択しても、データベースに登録されません。
+また、question.phpとdetail.phpにて、画像の表示がされなくなりました。
+----------------------------------------------------------------------------------------------------
+
+USE QAbbs;
+
+INSERT IGNORE INTO users (loginId, password, name) VALUES
+('user01', 'pass01', 'ペンギン'),
+('user02', 'pass02', 'イルカ'),
+('user03', 'pass03', 'アザラシ');
+
+
+INSERT IGNORE INTO questions (userId, question, date) VALUES
+(1, 'この質問が見えていますか？', '2024-08-13 10:00:00'),
+(2, 'あなたの、好きな食べ物は？', '2024-08-13 11:30:00'),
+(3, 'Novelbrightで好きな曲は？', '2024-08-13 14:15:00'),
+(1, '私は、海の生き物ですか？', '2024-08-13 16:00:00');
+
+INSERT IGNORE INTO answers (questionId, userId, answer, date) VALUES
+(1, 2, 'バッチリ見えています！', '2024-08-13 10:30:00'),
+(1, 3, '問題なく、閲覧できています。', '2024-08-13 10:45:00'),
+(2, 1, '寿司', '2024-08-13 12:00:00'),
+(3, 2, '開幕宣言', '2024-08-13 15:00:00'),
+(4, 3, 'あなたは、地上では・・・？', '2024-08-13 16:30:00');
+
+----------------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------------------
